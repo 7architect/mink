@@ -1,0 +1,231 @@
+# Концепт для условного monorepo магазина одежды.
+# Пути, имена package.json scripts и shell-файл нужно создать в самом проекте.
+version: 1
+
+repository:
+  name: Threadline
+  description: Интернет-магазин одежды с витриной, API и PostgreSQL.
+
+commands:
+  db:up:
+    kind: command
+    name: Запустить базу данных
+    description: Поднять PostgreSQL для локальной разработки.
+    command: ./scripts/db-up.sh
+    run:
+      timeout_ms: 60000
+
+  db:migrate:
+    kind: command
+    name: Применить миграции
+    description: Обновить схему базы данных магазина.
+    command: pnpm --dir apps/api run db:migrate
+    source:
+      package_script:
+        manifest: apps/api/package.json
+        name: db:migrate
+    depends_on: [db:up]
+    run:
+      timeout_ms: 120000
+
+  api:dev:
+    kind: command
+    name: Запустить API
+    description: Запустить локальный сервер каталога и заказов.
+    command: pnpm --dir apps/api run dev
+    source:
+      package_script:
+        manifest: apps/api/package.json
+        name: dev
+    depends_on: [db:migrate]
+    params:
+      port:
+        type: number
+        description: Порт API.
+        default: 4000
+        env: PORT
+    run:
+      mode: service
+      startup_timeout_ms: 30000
+
+  web:dev:
+    kind: command
+    name: Запустить витрину
+    description: Запустить локальный веб-интерфейс магазина.
+    command: pnpm --dir apps/web run dev
+    source:
+      package_script:
+        manifest: apps/web/package.json
+        name: dev
+    params:
+      port:
+        type: number
+        description: Порт витрины.
+        default: 3000
+        env: PORT
+      host:
+        type: boolean
+        description: Разрешить подключения из локальной сети.
+        default: false
+        flag: --host
+    run:
+      mode: service
+      startup_timeout_ms: 30000
+
+  api:test:
+    kind: command
+    name: Проверить API
+    description: Запустить тесты API.
+    command: pnpm --dir apps/api run test
+    source:
+      package_script:
+        manifest: apps/api/package.json
+        name: test
+    run:
+      timeout_ms: 180000
+
+  api:lint:
+    kind: command
+    name: Проверить стиль API
+    command: pnpm --dir apps/api run lint
+
+  api:build:
+    kind: command
+    name: Собрать API
+    command: pnpm --dir apps/api run build
+    source:
+      package_script:
+        manifest: apps/api/package.json
+        name: build
+
+  api:integration:
+    kind: command
+    name: Проверить API с базой данных
+    command: pnpm --dir apps/api run test:integration
+    source:
+      package_script:
+        manifest: apps/api/package.json
+        name: test:integration
+
+  web:test:
+    kind: command
+    name: Проверить витрину
+    description: Запустить тесты веб-приложения.
+    command: pnpm --dir apps/web run test
+    source:
+      package_script:
+        manifest: apps/web/package.json
+        name: test
+    run:
+      timeout_ms: 180000
+
+  web:lint:
+    kind: command
+    name: Проверить стиль витрины
+    command: pnpm --dir apps/web run lint
+    source:
+      package_script:
+        manifest: apps/web/package.json
+        name: lint
+
+  web:build:
+    kind: command
+    name: Собрать витрину
+    command: pnpm --dir apps/web run build
+    source:
+      package_script:
+        manifest: apps/web/package.json
+        name: build
+
+  store:e2e:
+    kind: command
+    name: Проверить путь покупателя
+    description: Прогнать сценарий каталога, корзины и оформления заказа.
+    command: pnpm run test:e2e
+    source:
+      package_script:
+        manifest: package.json
+        name: test:e2e
+
+  catalog:seed:
+    kind: command
+    name: Заполнить каталог
+    description: Добавить демонстрационные товары и размеры.
+    command: ./scripts/seed-catalog.sh
+    source:
+      shell_script: ./scripts/seed-catalog.sh
+    depends_on: [db:migrate]
+    params:
+      collection:
+        type: select
+        description: Коллекция товаров.
+        options: [summer, winter]
+        default: summer
+        env: SEED_COLLECTION
+    run:
+      timeout_ms: 120000
+
+  dev:
+    kind: pipeline
+    name: Локальная разработка
+    description: Подготовить данные и запустить API и витрину.
+    params:
+      collection:
+        type: select
+        description: Коллекция для демонстрационных товаров.
+        options: [summer, winter]
+        default: summer
+    steps:
+      seed:
+        uses: catalog:seed
+        with:
+          collection: ${params.collection}
+      api:
+        uses: api:dev
+        needs: [seed]
+      web:
+        uses: web:dev
+        needs: [seed]
+
+  api:quality:
+    kind: pipeline
+    name: Проверить и собрать API
+    steps:
+      lint:
+        uses: api:lint
+      test:
+        uses: api:test
+      build:
+        uses: api:build
+        needs: [lint, test]
+
+  web:quality:
+    kind: pipeline
+    name: Проверить и собрать витрину
+    steps:
+      lint:
+        uses: web:lint
+      test:
+        uses: web:test
+      build:
+        uses: web:build
+        needs: [lint, test]
+
+  check:
+    kind: pipeline
+    name: Проверить проект
+    description: Параллельно проверить компоненты, затем интеграцию и путь покупателя.
+    max_parallel: 3
+    steps:
+      database:
+        uses: db:migrate
+      api:
+        uses: api:quality
+      web:
+        uses: web:quality
+      integration:
+        uses: api:integration
+        needs: [database, api]
+      e2e:
+        uses: store:e2e
+        needs: [web, integration]

@@ -1,0 +1,28 @@
+{
+  "name": "@mink/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./schema": "./schema/mink.schema.json"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --target node24 --platform node --dts --out-dir dist --clean",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "generate-types": "json2ts ./schema/mink.schema.json -o ./src/types/schema.d.ts"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "consola": "^3.4.2",
+    "fuse.js": "^7.5.0",
+    "js-yaml": "^5.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "json-schema-to-typescript": "^16.0.0",
+    "tsup": "^8.5.1"
+  }
+}

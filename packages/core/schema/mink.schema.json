@@ -1,0 +1,196 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mink configuration",
+  "type": "object",
+  "required": ["version", "commands"],
+  "properties": {
+    "version": { "const": 1 },
+    "repository": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "commands": {
+      "type": "object",
+      "propertyNames": { "minLength": 1 },
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/$defs/command" },
+          { "$ref": "#/$defs/pipeline" }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "source": {
+      "type": "object",
+      "oneOf": [
+        { "required": ["package_script"] },
+        { "required": ["shell_script"] }
+      ],
+      "properties": {
+        "package_script": {
+          "type": "object",
+          "required": ["manifest", "name"],
+          "properties": {
+            "manifest": { "type": "string", "minLength": 1 },
+            "name": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "shell_script": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "parameter": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["string", "boolean", "number", "select"] },
+        "description": { "type": "string" },
+        "default": {},
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "env": { "type": "string", "minLength": 1 },
+        "flag": { "type": "string", "pattern": "^--?[A-Za-z0-9][A-Za-z0-9-]*$" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "string" } } },
+          "then": {
+            "properties": { "default": { "type": "string" } },
+            "not": { "required": ["options"] }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "boolean" } } },
+          "then": {
+            "properties": { "default": { "type": "boolean" } },
+            "not": { "required": ["options"] }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "number" } } },
+          "then": {
+            "properties": { "default": { "type": "number" } },
+            "not": { "required": ["options"] }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "select" } } },
+          "then": {
+            "required": ["options"],
+            "properties": { "default": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "commandParameter": {
+      "allOf": [
+        { "$ref": "#/$defs/parameter" },
+        { "not": { "type": "object", "required": ["env", "flag"] } }
+      ]
+    },
+    "pipelineParameter": {
+      "allOf": [
+        { "$ref": "#/$defs/parameter" },
+        {
+          "not": {
+            "anyOf": [
+              { "type": "object", "required": ["env"] },
+              { "type": "object", "required": ["flag"] }
+            ]
+          }
+        }
+      ]
+    },
+    "params": {
+      "type": "object",
+      "propertyNames": { "minLength": 1 },
+      "additionalProperties": { "$ref": "#/$defs/commandParameter" }
+    },
+    "run": {
+      "type": "object",
+      "properties": {
+        "mode": { "enum": ["task", "service"] },
+        "timeout_ms": { "type": "integer", "minimum": 1 },
+        "startup_timeout_ms": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "command": {
+      "type": "object",
+      "required": ["kind", "name", "command"],
+      "properties": {
+        "kind": { "const": "command" },
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "command": { "type": "string", "minLength": 1 },
+        "source": { "$ref": "#/$defs/source" },
+        "depends_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "params": { "$ref": "#/$defs/params" },
+        "run": { "$ref": "#/$defs/run" }
+      },
+      "additionalProperties": false
+    },
+    "step": {
+      "type": "object",
+      "required": ["uses"],
+      "properties": {
+        "uses": { "type": "string", "minLength": 1 },
+        "needs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "with": {
+          "type": "object",
+          "propertyNames": { "minLength": 1 },
+          "additionalProperties": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "number" },
+              { "type": "boolean" }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "pipeline": {
+      "type": "object",
+      "required": ["kind", "name", "steps"],
+      "properties": {
+        "kind": { "const": "pipeline" },
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "params": {
+          "type": "object",
+          "propertyNames": { "minLength": 1 },
+          "additionalProperties": { "$ref": "#/$defs/pipelineParameter" }
+        },
+        "max_parallel": { "type": "integer", "minimum": 1 },
+        "steps": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "minLength": 1 },
+          "additionalProperties": { "$ref": "#/$defs/step" }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
