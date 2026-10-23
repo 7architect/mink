@@ -1,0 +1,29 @@
+---
+title: Security and troubleshooting
+---
+
+# Run repositories you trust
+
+A `command` is executable shell code with your user's permissions, cwd, and inherited environment. Package scripts and shell files are equally powerful. Mink validates configuration structure and inputs; it is not a sandbox or a permission boundary. Review commands from unfamiliar repositories before running them.
+
+Parameter flags are appended as quoted literals. NUL bytes and invalid types are rejected before spawn. Secret inputs must use environment exports, are masked in forms/previews, and cannot enter presets, clipboard commands, or history. Arbitrary child output is not redacted. External programs may expose secrets in logs or write them to disk.
+
+The TUI strips ANSI/control sequences from displayed child output. CLI output is raw to preserve existing tools and pipelines. Opening a URL requires an explicit action in the services screen and accepts only HTTP(S).
+
+## Common errors
+
+| Message/symptom                              | Action                                                                            |
+| -------------------------------------------- | --------------------------------------------------------------------------------- |
+| No configuration or discoverable commands    | Run from the project directory, pass `--config`, or use `init`                    |
+| Invalid configuration                        | Fix the reported schema path; unknown fields are rejected                         |
+| Missing parameter                            | Supply `--param`, fill the form, or define a default                              |
+| Inactive parameter                           | Remove the value or change its condition controller                               |
+| Unknown/stale preset parameter               | Update the preset to match the current configuration                              |
+| Service already scheduled or running         | Use restart or stop the current owned instance                                    |
+| Startup timed out                            | Check the literal probe address, child output, and startup timeout                |
+| Conflicting lockfiles                        | Set `packageManager` in `package.json`                                            |
+| Palette needs a TTY                          | Use `list`, `check`, or `run`, or launch from an interactive terminal             |
+| Clipboard unavailable                        | Install `wl-copy` or `xclip` on Linux                                             |
+| Interactive program does not render properly | Use foreground stdin for line input; full PTY applications are outside this alpha |
+
+A failed prerequisite prevents its command from starting. Failed pipeline steps skip only dependent branches. Timeout returns 124, cancellation returns 130/143, and a failed pipeline returns 1. Windows execution is explicitly rejected because POSIX group ownership is required.

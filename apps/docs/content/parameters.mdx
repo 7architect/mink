@@ -1,0 +1,55 @@
+---
+title: Parameters
+---
+
+# Inputs with a contract
+
+Every active parameter needs a supplied value or a default. There is no implicit empty value or implicit `false`. Export command inputs using exactly one of `env` or `flag`; a parameter without either may control another parameter's visibility. Pipeline parameters are passed through step `with` and have no export mapping.
+
+| Type      | Accepted value                                                         |
+| --------- | ---------------------------------------------------------------------- |
+| `string`  | String without a NUL character                                         |
+| `number`  | Finite number                                                          |
+| `boolean` | `true` or `false`                                                      |
+| `select`  | String from a nonempty, unique `options` list                          |
+| `port`    | Integer from 1 to 65535; does not reserve a socket                     |
+| `path`    | String; environment exports resolve relative to the command's cwd      |
+| `secret`  | String; no default, flag, or preset; commands require an `env` mapping |
+
+```yaml
+params:
+  mode:
+    type: select
+    options: [local, remote]
+    default: local
+    env: MODE
+  port:
+    type: port
+    default: 3000
+    flag: --port
+    when: { param: mode, equals: local }
+  config:
+    type: path
+    default: ./config.json
+    env: CONFIG_FILE
+  verbose:
+    type: boolean
+    default: false
+    flag: --verbose
+  token:
+    type: secret
+    env: API_TOKEN
+    when: { param: mode, equals: remote }
+```
+
+## Conditions
+
+`when: { param: mode, equals: remote }` activates an input only when the referenced input has that exact typed value. Conditions are evaluated in dependency order, including defaults; conditional cycles are rejected. Inactive inputs do not export values. Supplying an inactive input is an error, which catches stale CLI flags and presets.
+
+## Shell and environment behavior
+
+Mink keeps `command` as trusted shell source. It adds each flag and value as separately quoted literal arguments. It does not interpolate parameter strings into the shell source. Boolean flags appear only for `true`; `false` omits the flag. Environment values override the matching inherited variables for that child process.
+
+Path inputs passed by a flag retain the entered spelling. An environment path is made absolute using the effective command cwd. Mink does not require the path to exist or check port availability.
+
+Secret fields are masked while typing, previews show `[hidden]`, and local history never stores parameter values. Pipeline secrets may be forwarded only to secret parameters. Use `--secret-env token=VARIABLE_NAME` from the CLI. Child programs can still print their environment or leak credentials; Mink cannot reliably redact arbitrary child output.

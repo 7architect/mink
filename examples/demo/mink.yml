@@ -1,0 +1,60 @@
+version: 1
+repository:
+  name: Mink demo
+  description: A runnable project using only the Node.js standard library
+commands:
+  greet:
+    kind: command
+    name: Greet a teammate
+    command: node tasks.mjs greet
+    params:
+      person: { type: string, env: PERSON, default: team }
+      excited: { type: boolean, env: EXCITED, default: false }
+    presets:
+      welcome: { person: Mink, excited: true }
+  lint:
+    kind: command
+    name: Check source
+    command: node tasks.mjs lint
+    run: { timeout_ms: 5000 }
+  test:
+    kind: command
+    name: Run demo tests
+    command: node tasks.mjs test
+    run: { timeout_ms: 5000 }
+  build:
+    kind: command
+    name: Build demo output
+    command: node tasks.mjs build
+  quality:
+    kind: pipeline
+    name: Check in parallel
+    steps:
+      lint: { uses: lint }
+      test: { uses: test }
+  verify:
+    kind: pipeline
+    name: Verify and build
+    max_parallel: 2
+    steps:
+      quality: { uses: quality }
+      build: { uses: build, needs: [quality] }
+  server:
+    kind: command
+    name: Demo HTTP server
+    command: node server.mjs
+    run:
+      mode: service
+      startup_timeout_ms: 5000
+      ready: { type: http, url: 'http://127.0.0.1:4317/health' }
+  probe:
+    kind: command
+    name: Request the demo server
+    command: node tasks.mjs probe
+  develop:
+    kind: pipeline
+    name: Start and check the demo server
+    max_parallel: 1
+    steps:
+      server: { uses: server }
+      probe: { uses: probe, needs: [server] }

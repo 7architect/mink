@@ -1,0 +1,40 @@
+---
+title: Services
+---
+
+# Own the services you start
+
+Mark a command as `run.mode: service`. A service stays attached to the current Mink session. It becomes ready after the configured probe, then continues while subsequent workflow steps run.
+
+```yaml
+kind: command
+name: Development server
+command: node server.mjs
+run:
+  mode: service
+  startup_timeout_ms: 10000
+  ready:
+    type: http
+    url: http://127.0.0.1:3000/health
+    interval_ms: 100
+```
+
+| Probe               | Readiness rule                                                          |
+| ------------------- | ----------------------------------------------------------------------- |
+| `process` (default) | Shell process spawned; application initialization is not verified       |
+| `tcp`               | Connection succeeds to `host` (default `127.0.0.1`) and required `port` |
+| `http`              | GET to required HTTP(S) `url` returns a 2xx response; redirects fail    |
+
+HTTP and TCP attempts have a short bounded timeout. Failed attempts repeat at `interval_ms` (default 100). Startup defaults to 30 seconds; expiration stops the process tree and produces a failed, timed-out result. Health addresses are literal configuration values; they are not derived from parameterized ports.
+
+## Manage a session
+
+Press **Ctrl+S** in the palette to inspect owned services and their recent output. Stop sends SIGTERM followed by SIGKILL if necessary; kill sends SIGKILL immediately. Restart stops the old instance and launches the same prepared service inputs. It does not rerun its one-shot prerequisites. Open uses the explicitly configured HTTP health URL and only allows HTTP(S).
+
+Mink rejects a second scheduled/running instance of the same service ID, including concurrent requests while the first is waiting on dependencies. Stopped or failed services can be started again.
+
+## Shutdown
+
+Each child starts in its own POSIX process group. Cancel, timeout, shutdown, and natural shell exit clean up its descendants. SIGTERM escalates to SIGKILL after 800 ms if the shell has not exited. Mink acts only on process groups it created.
+
+Exiting the palette or sending SIGINT/SIGTERM to Mink disposes of its session. `mink run` stays alive while its services run and reports a service failure through the exit code. There is no daemon, restart-after-crash supervisor, external-process adoption, or persistence across sessions. A child that deliberately detaches into a new session is beyond process-group ownership.

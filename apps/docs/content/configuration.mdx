@@ -1,0 +1,64 @@
+---
+title: Configuration
+---
+
+# A small, explicit repository contract
+
+`mink.yml` is YAML with `version: 1` and a `commands` map. A map key is the ID used by search, the CLI, dependencies, and pipeline steps. Unknown fields are rejected. [The JSON Schema](https://github.com/yaroslavlky/mink/blob/main/packages/core/schema/mink.schema.json) is the source for generated TypeScript configuration types.
+
+```yaml
+version: 1
+repository:
+  name: Store
+  description: Local development tools
+commands:
+  test:
+    kind: command
+    name: Test the API
+    description: Run the API test suite
+    command: pnpm test
+    cwd: apps/api
+    run:
+      mode: task
+      timeout_ms: 120000
+```
+
+## Command fields
+
+| Field         | Meaning                                                             |
+| ------------- | ------------------------------------------------------------------- |
+| `kind`        | `command`                                                           |
+| `name`        | Required display name                                               |
+| `command`     | Required trusted shell command                                      |
+| `description` | Optional searchable explanation                                     |
+| `cwd`         | Working directory, resolved relative to the configuration directory |
+| `params`      | Named typed inputs; see [parameters](/parameters/)                  |
+| `depends_on`  | IDs of one-shot prerequisites                                       |
+| `run`         | Task timeout or service startup policy                              |
+| `presets`     | Named non-secret input values                                       |
+| `source`      | Optional provenance metadata; never substitutes for `command`       |
+
+`source` is either `{ package_script: { manifest: package.json, name: test } }` or `{ shell_script: scripts/check.sh }`. Discovered commands carry it automatically. An explicit YAML override replaces the entire discovered entry.
+
+## Task prerequisites
+
+```yaml
+commands:
+  migrate:
+    kind: command
+    name: Migrate the database
+    command: pnpm migrate
+  seed:
+    kind: command
+    name: Seed data
+    command: pnpm seed
+    depends_on: [migrate]
+```
+
+Prerequisites run sequentially before their dependent command. Each prerequisite ID runs once per root invocation, even when multiple branches request it. They take their declared defaults; use pipeline `with` for explicit parameter passing. A dependency must be a one-shot command; service ordering belongs in a pipeline.
+
+## Validation boundaries
+
+Loading validates structure, IDs, dependency/step/condition cycles, parameter defaults, preset types, readiness settings, and pipeline references. `check` does this without spawning children. Preparing an invocation then resolves every active parameter across its entire graph before any process starts. Missing values in a later branch therefore cannot trigger earlier side effects.
+
+Validation does not execute shell code or verify that external tools, files, credentials, or services exist. Failures from those resources appear as runtime errors and exit codes.

@@ -1,0 +1,50 @@
+---
+title: Architecture
+---
+
+# Put execution policy in one place
+
+Mink is a pnpm workspace with three runtime packages and one documentation app.
+
+| Package      | Owns                                                                                             | Does not depend on         |
+| ------------ | ------------------------------------------------------------------------------------------------ | -------------------------- |
+| `@mink/core` | Discovery, schema/semantic validation, resolution, planning, execution, process ownership, state | React, Ink, citty          |
+| `@mink/tui`  | Ink screens, keyboard input, bounded output buffer, explicit clipboard/browser actions           | CLI argument parsing       |
+| `mink`       | citty commands, typed CLI values, signal lifetime, stdout/stderr and exit codes                  | Screen internals           |
+| `@mink/docs` | Nextra/Next static documentation and Pagefind search                                             | Runtime process management |
+
+## From configuration to execution
+
+```text
+YAML + discovered scripts
+          ↓
+JSON Schema → semantic validation
+          ↓
+resolve every parameter and reference
+          ↓
+ExecutionPlan (pure graph, no children)
+          ↓
+Session → DAG promises + root process semaphore
+          ↓
+POSIX process groups → typed events + RunResult
+```
+
+The schema is the configuration source of truth; TypeScript types are generated from it. Semantic validation handles what schema cannot express: graph cycles, ID relationships, compatible references, and input conditions. `planExecution` constructs a complete graph and prepares shell/env/cwd values before runtime begins. UI and CLI share these boundaries.
+
+## Scheduling and ownership
+
+A session owns its process handles, abort controllers, service reservations, and observers. A root invocation owns a semaphore and prerequisite promise cache. DAG coordinators await dependencies without acquiring process slots. Nested graphs therefore share one root budget and cannot deadlock while waiting for their children.
+
+A service reservation is acquired synchronously before the first await so concurrent invocations cannot start duplicates. Each process has separate readiness and completion promises. Task readiness equals completion; service readiness can resolve earlier. Observers receive start/stdout/stderr/ready/finish events and cannot throw into process ownership logic.
+
+Each spawn creates a detached POSIX process group. Group termination cleans descendants and escalates after a bounded grace period. Session disposal cancels invocations and awaits owned process completion. Service restart reuses its prepared plan while omitting already-completed prerequisites. There is no hidden background scheduler or global daemon.
+
+## Interface and state boundaries
+
+CLI and TUI call the same core facade (`createMink`). CLI uses raw events; the palette sanitizes and bounds its in-memory output, periodically refreshing rather than rerendering every chunk. Foreground stdin temporarily unmounts Ink and returns afterward. Config/search snapshots are detached from internal configuration.
+
+The state store is separate from execution. Per-project JSON writes use a cross-process lock and atomic rename. History failures cannot turn a successful task into a failed task. Preset writes validate against the current schema and exclude secrets. Project state is convenience data; the runtime's source of process ownership remains the current session.
+
+## Deliberate alpha limits
+
+Linux/macOS and Node 24 are explicit requirements. The root concurrency limit covers task/startup processes, not ready services. Probes check startup readiness rather than ongoing health. Full PTY emulation, session persistence, plugins, configuration inheritance, remote/Git integrations, and Make/Taskfile/Compose discovery are deferred. These are separate capabilities, not silent partially-supported paths.

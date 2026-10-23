@@ -1,0 +1,49 @@
+---
+title: CLI and palette
+---
+
+# One engine, two interfaces
+
+| Command                   | Behavior                                            |
+| ------------------------- | --------------------------------------------------- |
+| `mink` or `mink ui`       | Interactive command palette; requires a TTY         |
+| `mink list [--json]`      | List discovered and configured entries              |
+| `mink check`              | Validate schema, references, conditions, and cycles |
+| `mink run <id>`           | Run a task or pipeline with live stdout/stderr      |
+| `mink init`               | Create a configuration without overwriting          |
+| `mink preset <id> <name>` | Save a new local parameter preset                   |
+| `mink favorite <id>`      | Toggle a local favorite                             |
+
+Place options **after the subcommand**. `--config path` selects a file explicitly. `--no-discovery` loads only that file. `--help` is available on every command.
+
+```sh
+mink run greet --param person=Ada --config examples/demo/mink.yml
+mink preset greet morning --param person=team
+mink run greet --preset morning --param person=Alex
+API_TOKEN=example mink run upload --secret-env token=API_TOKEN
+```
+
+Repeat `--param name=value` for different parameters. Strings containing spaces need shell quoting. Numbers and booleans are parsed according to the declared type. Duplicate and unknown parameter names fail before execution. A supplied value overrides the selected preset. Secrets use environment indirection to keep values out of shell history.
+
+## Keyboard controls
+
+| Screen         | Keys                                                                                          |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| Palette        | Type to search; ↑/↓ select; Enter configure; Ctrl+F favorite                                  |
+| Parameter form | Enter next; Shift+Tab previous; arrows change select/boolean                                  |
+| Preview        | Enter run; Shift+Enter foreground stdin; `e` edit; `p` load preset; `s` save preset; `c` copy |
+| Output         | Ctrl+C cancel current invocation; `r` rerun after completion                                  |
+| Services       | ↑/↓ select; `s` stop; `r` restart; `k` kill; `o` open HTTP health URL                         |
+| Anywhere       | Ctrl+S services; Esc palette (or exit from palette); Ctrl+C exit when idle                    |
+
+Favorites appear first; recent commands follow. The output view retains the most recent 256 KiB in at most 1,000 chunks and renders a tail sized to the terminal. Resizing updates the layout. Child terminal control sequences are stripped in the TUI.
+
+Clipboard support uses `pbcopy` on macOS or `wl-copy`/`xclip` on Linux. Missing tools produce an error in the interface. Copy includes the working directory and environment exports inside a subshell; secret values cannot be copied. Pipelines have no single shell command to copy.
+
+## Exit and stdin
+
+Headless runs preserve a task's exit code, use **1** for a failed pipeline/configuration error, **124** for a timeout, **130** for SIGINT, and **143** for SIGTERM. Child output is forwarded without rewriting it; status messages go to stderr.
+
+CLI runs inherit stdin. Palette runs normally ignore stdin; use **Shift+Enter** for a command that reads terminal input. Mink temporarily leaves Ink, forwards the command's output, then reopens the palette. Output remains piped; applications that require a real PTY are outside this alpha.
+
+Services keep `mink run` alive after readiness. Ctrl+C or SIGTERM stops owned processes before exit. A ready service in the palette continues while you choose other actions.

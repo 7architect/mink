@@ -1,0 +1,31 @@
+---
+title: Development
+---
+
+# Work on Mink
+
+```sh
+pnpm install --frozen-lockfile
+pnpm build:packages
+pnpm check
+pnpm schema:check
+pnpm docs:build
+pnpm test:pack
+```
+
+`check` runs ESLint, Prettier, TypeScript, and Vitest. Build packages first because package boundaries resolve through their built exports. Schema generation is deterministic and checked against the committed declaration. `test:pack` packs all three runtime packages, installs their tarballs in a clean temporary consumer, and invokes the installed executable.
+
+Core tests use real temporary projects and child processes. They cover preflight, shell quoting, discovery, dependency graphs, concurrency, service readiness, cancellation, process-group cleanup, state locking, and secret handling. CLI tests invoke the built entrypoint. Ink tests send keyboard input through the test renderer. No database, Docker engine, or third-party service is needed.
+
+## Documentation
+
+```sh
+pnpm docs:dev
+pnpm docs:build
+```
+
+The Nextra App Router content lives in `apps/docs/content`. The build statically exports the site to `apps/docs/out`, then generates the local Pagefind search index. Serve that directory over HTTP to test search; a development build has no production search index. No hosting account or deployment is required.
+
+## Repository checks
+
+GitHub Actions checks Linux and macOS on Node 24. The Linux job also builds documentation and uploads the static output. Artifacts are build outputs; the workflow does not publish packages or deploy a website. Formatting and linting are repository-wide. Keep generated schema types in sync after editing `packages/core/schema/mink.schema.json`.

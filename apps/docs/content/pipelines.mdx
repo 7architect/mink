@@ -1,0 +1,61 @@
+---
+title: Pipelines
+---
+
+# Connect tasks as a graph
+
+A pipeline maps step names to reusable entries. `uses` names a command or another pipeline, `needs` names steps in the same pipeline, and `with` supplies typed values.
+
+```yaml
+commands:
+  lint:
+    kind: command
+    name: Lint
+    command: pnpm lint
+  test:
+    kind: command
+    name: Test
+    command: pnpm test
+  build:
+    kind: command
+    name: Build
+    command: pnpm build
+  verify:
+    kind: pipeline
+    name: Verify and build
+    max_parallel: 2
+    steps:
+      lint: { uses: lint }
+      test: { uses: test }
+      build: { uses: build, needs: [lint, test] }
+```
+
+Lint and test can run together. Build starts after both succeed. A failed step causes its dependents to be skipped; independent branches continue. Cancellation stops running processes and prevents queued steps from starting. The result contains a status for every step, including nested pipeline results.
+
+## Passing values
+
+```yaml
+kind: pipeline
+name: Test a target
+params:
+  target:
+    type: select
+    options: [api, web]
+    default: api
+steps:
+  test:
+    uses: test-target
+    with:
+      target: '${params.target}'
+      retries: 2
+```
+
+`test-target` must declare compatible `target` and `retries` parameters. A reference must occupy the entire string; there is no templating inside shell commands or partial strings. Literal scalar values are supported. The whole graph is resolved before execution, including references and active parameter conditions.
+
+## Nested concurrency
+
+The **root invocation's `max_parallel`** bounds simultaneous starting/task processes across all nested pipelines and prerequisites. It defaults to unbounded. A pipeline coordinator consumes no process slot, so a nested pipeline works even with a root limit of one. A nested pipeline's own limit is used when that pipeline is invoked as the root.
+
+Service startup occupies a slot until readiness, then releases it. Ready services continue running outside the task/startup budget. `needs` on a service means it reached readiness; it does not continuously monitor that service's health. Later service failure appears in its output and service state. A pipeline can reach success while its ready services remain alive in the session.
+
+Use `depends_on` for deduplicated one-shot prerequisites. A command used in two explicit pipeline steps runs twice; only prerequisites share a per-invocation promise cache. Scheduling the same service ID twice is rejected before the graph begins.

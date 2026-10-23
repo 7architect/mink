@@ -1,94 +1,83 @@
 <div align="center">
   <img src="assets/logo-rounded.png" alt="Mink — логотип с норкой" width="112" height="112">
 
-  # Mink
+# Mink
 
-  **Пульт управления вашим репозиторием прямо в терминале.**
+**Пульт управления репозиторием прямо в терминале.**
 
-  Находите команды проекта, задавайте параметры, запускайте скрипты и следите за результатом в одном интерфейсе.
+Находите команды, заполняйте параметры, запускайте пайплайны и управляйте локальными сервисами из одной палитры.
 </div>
 
-> **Статус: идея и ранняя разработка.** CLI и TUI пока не реализованы. Команды и конфигурация ниже показывают задуманный интерфейс, а не готовые возможности. Подробный план — в [idea.html](idea.html).
+Mink 0.1 — первая рабочая alpha для **Linux/macOS и Node.js 24+**. Пакеты пока не опубликованы: запуск доступен из собранного репозитория. Лицензия MIT.
 
-## Зачем Mink
+## Быстрый старт
 
-В проекте команды быстро расходятся по `package.json`, shell-скриптам и документации. Чтобы запустить нужную задачу, приходится помнить её имя, аргументы и место, где она определена. Mink задуман как единая command palette поверх существующего рабочего процесса: открыл терминал, нашёл действие, указал параметры и увидел вывод.
-
-Mink помогает обнаруживать и запускать существующие команды проекта.
-
-## Как это должно выглядеть
-
-```text
-$ mink
-
-MINK  repository control center
-
-› dev
-  dev
-  test:unit
-  db:migrate
-  scripts/release.sh
+```sh
+corepack enable
+corepack prepare pnpm@11.28.0 --activate
+pnpm install
+pnpm build:packages
+node packages/cli/dist/index.js ui --config examples/demo/mink.yml --no-discovery
 ```
 
-Планируемый сценарий: запустить `mink` в корне репозитория, найти задачу через поиск, при необходимости заполнить параметры и наблюдать `stdout`, `stderr`, код завершения и время выполнения. Для запуска без интерфейса планируется `mink run <task>`.
+[Демонстрационный проект](examples/demo/mink.yml) работает без внешних зависимостей: greeting с параметрами, параллельные проверки, вложенный pipeline и HTTP-сервис. Для запуска без TUI:
 
-## Первая версия
+```sh
+node packages/cli/dist/index.js run verify --config examples/demo/mink.yml --no-discovery
+node packages/cli/dist/index.js run greet --param person=Ada --config examples/demo/mink.yml
+```
 
-В v0.1 планируются:
+В другом проекте вызовите CLI по абсолютному пути. Без `mink.yml` Mink обнаруживает scripts ближайшего `package.json`; `mink init` создаёт YAML и не перезаписывает существующий файл.
 
-- CLI-команды `mink`, `mink run` и `mink init`;
-- конфигурация `mink.yml` и импорт скриптов из `package.json`;
-- command palette с нечётким поиском;
-- запуск shell-команд и `.sh`-файлов;
-- параметры типов `string`, `boolean`, `select` и `number`;
-- вывод процесса в реальном времени, код завершения, длительность и история недавних команд.
+## Возможности
 
-Пример **планируемого** `mink.yml`:
+- CLI: `ui`, `list`, `check`, `run`, `init`, `preset`, `favorite`.
+- Палитра с нечётким поиском, избранным и историей; формы, предпросмотр, копирование команды и foreground stdin.
+- YAML + JSON Schema и проверка ссылок/циклов до выполнения; импорт package scripts, базовых npm/pnpm/yarn workspaces и `scripts/*.sh`.
+- Параметры `string`, `number`, `boolean`, `select`, `port`, `path`, `secret`, defaults, условия и пресеты.
+- DAG-пайплайны, вложенные пайплайны, типизированные `with`, однократные prerequisites и общий лимит процессов для корневого запуска.
+- Потоковый stdout/stderr, exit code, длительность, timeout и cancellation с очисткой принадлежащих сессии POSIX process groups.
+- Сервисы с process/TCP/HTTP readiness; просмотр вывода, stop/restart/kill и открытие HTTP health URL.
+- Локальное состояние с блокировкой и атомарной записью; параметры и вывод не сохраняются в истории.
+
+В палитре: ↑↓ выбрать, Enter настроить/запустить, Ctrl+F избранное, Ctrl+S сервисы, Esc назад, Ctrl+C отменить/выйти. В preview: `e` изменить, `p` загрузить preset, `s` сохранить, `c` копировать; Shift+Enter — запустить с stdin вне Ink.
+
+## Конфигурация
 
 ```yaml
 version: 1
-
+repository:
+  name: My project
 commands:
-  dev:
+  greet:
     kind: command
-    name: Запустить проект
-    command: pnpm dev
+    name: Greet the team
+    command: node -e 'console.log("Hello, " + process.env.PERSON)'
     params:
-      port:
-        type: number
-        flag: --port
-        default: 3000
-      host:
-        type: boolean
-        flag: --host
-
-  release:
-    kind: command
-    name: Выпустить релиз
-    command: ./scripts/release.sh
-    params:
-      environment:
-        type: select
-        options: [staging, production]
-
-  db:migrate:
-    kind: command
-    name: Применить миграции
-    command: pnpm db:migrate
+      person: { type: string, env: PERSON, default: team }
+  check:
+    kind: pipeline
+    name: Check the project
+    max_parallel: 2
+    steps:
+      greeting: { uses: greet, with: { person: Mink } }
 ```
 
-Формат конфигурации ещё может измениться до первого релиза.
+YAML перекрывает обнаруженные команды с тем же ID. `--no-discovery` отключает импорт. Параметры передаются через env или отдельно экранированные аргументы; `command` остаётся доверенным shell-кодом. Секреты вводятся в маскированной форме или через `--secret-env token=ENV_NAME`, исключены из presets/clipboard/history. Вывод дочерней программы может содержать секреты и не редактируется автоматически.
 
-Более подробный [прототип структуры данных](docs/configuration.md) и [пример для Node.js магазина одежды](examples/clothing-store.mink.yml) показывают команды, необязательное происхождение `source`, зависимости и пайплайны. Они описывают будущий формат и пока не исполняются Mink.
+## Документация и разработка
 
-## Дальше
+```sh
+pnpm docs:dev       # сайт Nextra на localhost:3000
+pnpm docs:build     # static export + Pagefind → apps/docs/out
+pnpm build:packages
+pnpm check          # ESLint + Prettier + TypeScript + Vitest
+pnpm schema:check
+pnpm test:pack       # установка tarballs в отдельный временный проект
+```
 
-После работающего runner и palette в [плане](idea.html) — управление долгоживущими сервисами и логами, сохранённые наборы параметров, обнаружение `scripts/*.sh`, Makefile и Docker Compose. Приоритет первой версии — сделать ежедневные команды проекта доступными за несколько минут после установки.
+[Содержимое документации](apps/docs/content) включает руководство, CLI, конфигурацию, параметры, discovery, пайплайны, сервисы, состояние, безопасность и [архитектуру](apps/docs/content/architecture.mdx). Сайт можно разместить на любом static hosting; автоматическая публикация не включена.
 
-## Разработка
+Ядро в `packages/core` не зависит от React/Ink. CLI и TUI используют общий preflight, планировщик и runtime. Подробности API — в [README ядра](packages/core/README.md).
 
-Реализация ещё не началась. Сейчас репозиторий содержит [план продукта](idea.html), логотип и начальный `package.json`; инструкции по установке и запуску появятся вместе с работающим CLI.
-
-## Лицензия
-
-См. [LICENSE](LICENSE) (MIT).
+Ограничения alpha: Windows, PTY-эмуляция, сохранение сервисов между сессиями, Make/Taskfile/Compose imports, плагины, inheritance и remote/Git integrations отложены. Readiness проверяет запуск, а не непрерывное здоровье сервиса; лимит `max_parallel` корня покрывает задачи и запуск сервисов, готовые сервисы продолжают работать за пределами этого бюджета.

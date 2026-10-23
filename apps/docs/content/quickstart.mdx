@@ -1,0 +1,63 @@
+---
+title: Quick start
+---
+
+# Run your first command
+
+Use Linux or macOS, Node.js 24+, and pnpm 11.28.0. From the repository checkout:
+
+```sh
+corepack enable
+corepack prepare pnpm@11.28.0 --activate
+pnpm install
+pnpm build:packages
+node packages/cli/dist/index.js --help
+```
+
+The three runtime packages are built in dependency order: core, TUI, then CLI. No registry release is required.
+
+## Try the demo
+
+```sh
+node packages/cli/dist/index.js list --config examples/demo/mink.yml --no-discovery
+node packages/cli/dist/index.js run verify --config examples/demo/mink.yml --no-discovery
+node packages/cli/dist/index.js ui --config examples/demo/mink.yml --no-discovery
+```
+
+The demo uses only Node's standard library. It has a parameterized greeting, parallel checks, a nested verification pipeline, and an HTTP service on port 4317. Open `develop` in the palette, then use **Ctrl+S** to manage its service. Exit Mink to stop the processes it owns.
+
+## Use another project
+
+Invoke the built CLI by its absolute path from your project directory. Mink finds the nearest `mink.yml` by walking upward; without one, it can discover package scripts from the nearest `package.json`.
+
+```sh
+node /absolute/path/to/mink/packages/cli/dist/index.js list
+node /absolute/path/to/mink/packages/cli/dist/index.js init
+node /absolute/path/to/mink/packages/cli/dist/index.js
+```
+
+`init` writes a configuration from discovered scripts and refuses to replace an existing file. Discovery remains enabled on subsequent runs; YAML entries with the same ID override discovered entries.
+
+## Add intent
+
+```yaml
+version: 1
+repository:
+  name: My project
+commands:
+  greet:
+    kind: command
+    name: Greet a teammate
+    command: node -e 'console.log("Hello, " + process.env.PERSON)'
+    params:
+      person:
+        type: string
+        env: PERSON
+        default: team
+```
+
+```sh
+mink run greet --param person=Ada
+```
+
+Examples using `mink` assume the built executable is on your PATH. In this checkout, replace it with `node packages/cli/dist/index.js`.

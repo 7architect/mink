@@ -1,0 +1,37 @@
+---
+title: Presets and local state
+---
+
+# Keep convenience local
+
+Mink saves recent invocation results, favorites, and named parameter presets per project. History stores only ID, timestamp, status, and duration, with a limit of 100 entries. It never stores arguments, environment values, or output.
+
+Repository presets live beside a command or pipeline:
+
+```yaml
+presets:
+  staging:
+    target: staging
+    verbose: true
+```
+
+Every key must name a declared non-secret parameter and every value must match its type. A preset can be partial; the remaining parameters must have defaults or be provided when running it. CLI-supplied parameters override preset values.
+
+```sh
+mink preset deploy personal --param target=staging --param verbose=true
+mink run deploy --preset personal
+```
+
+In the palette, `p` loads a preset from preview and `s` saves the current form values. Local names may not replace an existing local or repository preset. Saving is exclusive under the state lock, including across multiple Mink processes. Secrets are never accepted in presets.
+
+## Files and concurrency
+
+The project key is a SHA-256 hash of the absolute configuration path. State is stored under:
+
+- `$XDG_STATE_HOME/mink` when set;
+- `~/Library/Application Support/mink` on macOS;
+- `~/.local/state/mink` on Linux.
+
+Updates hold a `proper-lockfile` lock, read the latest state, write a private temporary file, then atomically rename it. Directories use mode 0700 and files use 0600 when created. Concurrent sessions preserve each other's updates. Malformed JSON resets the convenience state on the next write; operational read/write failures are surfaced. A history-write failure warns without changing the completed command's result.
+
+Moving the checkout or changing the configuration path gives it a new state identity. State is local, unencrypted convenience data. Delete the matching file to reset it; keep credentials in secret inputs or an external credential manager.

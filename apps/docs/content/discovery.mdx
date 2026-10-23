@@ -1,0 +1,25 @@
+---
+title: Discovery and workspaces
+---
+
+# Reuse project scripts
+
+Discovery imports root `package.json` scripts, basic npm/pnpm/yarn workspace scripts, and `scripts/*.sh` in the project directory. It reads definitions without executing them. Use `--no-discovery` for a configuration-only session.
+
+| Source              | Example ID          | Execution cwd  |
+| ------------------- | ------------------- | -------------- |
+| Root package script | `test`              | Project root   |
+| Workspace script    | `packages/api:test` | `packages/api` |
+| Shell file          | `scripts/check.sh`  | Project root   |
+
+The package manager comes from `packageManager` when present, otherwise a lockfile, otherwise npm. Conflicting lockfiles require an explicit `packageManager`. Unsupported package managers fail with an explanation.
+
+Workspace patterns come from `pnpm-workspace.yaml` (`packages`) or `package.json` (`workspaces` array or `workspaces.packages`). Patterns must stay inside the project. Discovery skips symlink traversal, `node_modules`, and `.git`; it reports ID collisions. Shell files run through `sh`, so executable permission is unnecessary and the scripts must be compatible with that shell.
+
+## Finding the root
+
+An explicit `--config` path wins. Otherwise Mink looks upward for `mink.yml`. Without YAML it looks upward for the nearest `package.json`; if neither exists, it can discover shell scripts in the current directory. In a monorepo, keep a root `mink.yml` to establish a stable shared root when opening Mink from nested packages.
+
+Malformed YAML is an error. Mink never silently falls back to discovered commands after finding a broken configuration. YAML commands replace discovered commands by ID; discovery metadata remains on entries that were not overridden.
+
+Imports from Makefiles, Taskfiles, and Docker Compose are planned separately. You can already invoke those tools with an explicit trusted `command` entry.
