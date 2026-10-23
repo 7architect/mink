@@ -1,19 +1,33 @@
 # @mink/core
 
-Текущий срез: загрузка `mink.yml`, проверка JSON Schema, ссылок и циклов, подготовка параметров и запуск разовых команд с зависимостями.
-
-Сборка пакета: `pnpm --filter @mink/core build` (tsup выпускает `dist/index.js` и `dist/index.d.ts`). Проверка типов: `pnpm --filter @mink/core typecheck`. Схема доступна отдельно через `@mink/core/schema`; она не генерируется при сборке.
+Headless Mink engine. Node.js 24+, Linux/macOS. No React, Ink, or CLI framework dependency.
 
 ```ts
 import { createMink } from '@mink/core';
-
-const mink = await createMink();
-const commands = mink.getConfig().commands;
-const matches = mink.searchCommands('api dev', 10);
-const result = await mink.run('test');
-process.exitCode = result.exitCode ?? 1;
+const mink = await createMink({ cwd: '/path/to/project' });
+try {
+  console.log(mink.searchCommands('test'));
+  const plan = mink.plan('test', {}); // Entire-graph preflight; no process starts.
+  console.log(plan.id);
+  const result = await mink.run(
+    'test',
+    {},
+    {
+      onEvent(event) {
+        if (event.chunk) process.stdout.write(event.chunk);
+      },
+    },
+  );
+  console.log(result.state, result.exitCode);
+} finally {
+  await mink.dispose(); // Always stop owned services and descendants.
+}
 ```
 
-Без `configFile` функция ищет `mink.yml` в текущем каталоге, затем в каждом родительском каталоге до корня. Если передать `configFile`, используется ровно этот путь без поиска. Возвращаемый объект содержит `getConfig()`, `searchCommands()`, `prepare()` и `run()`. Поиск использует Fuse.js token search: все слова запроса должны совпасть с ID, названием, описанием или текстом команды; результат отсортирован по релевантности и содержит ID, запись и score. Пустой запрос возвращает все записи в порядке конфига. Для интерфейса можно передать свой экземпляр `consola` через `logger`; загрузка, ход запуска и вывод процесса пишутся через него. Команды выполняются из каталога найденного конфига. `source` остаётся метаданными и не влияет на запуск.
+`prepare` resolves a single command; `plan` supports commands and nested pipelines. `run` returns task completion or pipeline readiness. Ready services remain owned by this instance until stopped or disposed. `services`, `stopService`, and `restartService` expose session management. `subscribe` observes typed process events. `state`, `favorite`, `preset`, and `savePreset` manage local convenience state.
 
-Сейчас `runCommand()` принимает только `kind: command` в режиме `task`. Пайплайны и сервисы валидируются, но не запускаются. `with` и типы параметров пайплайна пока не проверяются семантически. История команд и управление долгоживущими процессами не реализованы.
+Options: `configFile`, `cwd`, `discover` (default true), `stateDirectory` (override local storage for embedding/testing), and a Consola `logger`. `getConfig` and search results return detached snapshots. Prepared commands/plans can include secret values; treat them as sensitive in application code.
+
+The JSON Schema in `schema/mink.schema.json` owns configuration shape. Run `pnpm schema:generate` after changes. Semantic validation checks references and cycles; planning resolves every input before side effects. The runtime owns DAG scheduling, root process concurrency, POSIX groups, readiness, cancellation, and timeout. State updates use a cross-process lock and atomic rename.
+
+See [architecture](../../apps/docs/content/architecture.mdx), [configuration](../../apps/docs/content/configuration.mdx), and the runnable [demo](../../examples/demo/mink.yml). Raw child output is preserved; consumers rendering it in terminals should sanitize control sequences as appropriate.

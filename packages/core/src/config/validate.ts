@@ -1,52 +1,104 @@
-import type { MinkConfiguration, Parameter } from '../types/schema.js';
-
+import type { MinkConfiguration } from '../types/schema.js';
+import { assertParameterValue } from '../commands/resolve.js';
 export function validateReferences(config: MinkConfiguration): void {
-  const commands = config.commands;
-  for (const [id, entry] of Object.entries(commands)) {
-    for (const [name, parameter] of Object.entries(entry.params ?? {})) {
-      validateDefault(`${id}.params.${name}`, parameter);
-    }
-    if (entry.kind === 'command') {
-      for (const dependency of entry.depends_on ?? []) {
-        if (commands[dependency]?.kind !== 'command') {
-          throw new Error(`${id}: unknown command dependency ${dependency}`);
-        }
+  const entries = config.commands,
+    exists = (id: string) => Object.hasOwn(entries, id);
+  for (const [id, entry] of Object.entries(entries)) {
+    for (const [name, p] of Object.entries(entry.params ?? {})) {
+      if (p.default !== undefined)
+        assertParameterValue(`${id}.params.${name}.default`, p, p.default);
+      if (p.env && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(p.env))
+        throw new Error(`${id}.${name}: invalid env name`);
+      if (p.when) {
+        const target = entry.params?.[p.when.param];
+        if (!target || !Object.hasOwn(entry.params ?? {}, p.when.param))
+          throw new Error(`${id}.${name}: unknown condition parameter ${p.when.param}`);
+        assertParameterValue(`${id}.${name}.when`, target, p.when.equals);
       }
+    }
+    checkCycles(
+      Object.keys(entry.params ?? {}),
+      (name) => {
+        const c = entry.params?.[name].when;
+        return c ? [c.param] : [];
+      },
+      `${id}.params`,
+    );
+    for (const [preset, values] of Object.entries(entry.presets ?? {}))
+      for (const [name, value] of Object.entries(values)) {
+        const p = entry.params?.[name];
+        if (!p || !Object.hasOwn(entry.params ?? {}, name))
+          throw new Error(`${id}.presets.${preset}: unknown parameter ${name}`);
+        if (p.type === 'secret')
+          throw new Error(`${id}.presets.${preset}: secret values cannot be saved`);
+        assertParameterValue(`${id}.presets.${preset}.${name}`, p, value);
+      }
+    if (entry.kind === 'command') {
+      for (const dep of entry.depends_on ?? [])
+        if (!exists(dep) || entries[dep].kind !== 'command' || entries[dep].run?.mode === 'service')
+          throw new Error(
+            `${id}: dependency ${dep} must be a one-shot command; use pipeline needs for services`,
+          );
+      const run = entry.run;
+      if (run?.mode !== 'service' && (run?.startup_timeout_ms || run?.ready))
+        throw new Error(`${id}: startup settings require service mode`);
+      if (run?.mode === 'service' && run.timeout_ms)
+        throw new Error(`${id}: service requires startup_timeout_ms, not timeout_ms`);
+      if (run?.ready?.type === 'http') new URL(run.ready.url!);
     } else {
       for (const [stepId, step] of Object.entries(entry.steps)) {
-        if (!commands[step.uses]) throw new Error(`${id}.${stepId}: unknown command ${step.uses}`);
-        for (const need of step.needs ?? []) {
-          if (!entry.steps[need]) throw new Error(`${id}.${stepId}: unknown step ${need}`);
+        if (!exists(step.uses)) throw new Error(`${id}.${stepId}: unknown command ${step.uses}`);
+        for (const need of step.needs ?? [])
+          if (!Object.hasOwn(entry.steps, need))
+            throw new Error(`${id}.${stepId}: unknown step ${need}`);
+        for (const [name, value] of Object.entries(step.with ?? {})) {
+          const target = entries[step.uses].params?.[name];
+          if (!target || !Object.hasOwn(entries[step.uses].params ?? {}, name))
+            throw new Error(`${id}.${stepId}: unknown target parameter ${name}`);
+          const match = typeof value === 'string' && /^\$\{params\.([^}]+)\}$/.exec(value);
+          if (match) {
+            const source = entry.params?.[match[1]];
+            if (!source || !Object.hasOwn(entry.params ?? {}, match[1]))
+              throw new Error(`${id}.${stepId}: unknown pipeline parameter ${match[1]}`);
+            if (source.type === 'secret' && target.type !== 'secret')
+              throw new Error(
+                `${id}.${stepId}: secrets can only be forwarded to secret parameters`,
+              );
+            const primitive = (type: string) =>
+              ['number', 'port'].includes(type)
+                ? 'number'
+                : type === 'boolean'
+                  ? 'boolean'
+                  : 'string';
+            if (primitive(source.type) !== primitive(target.type))
+              throw new Error(`${id}.${stepId}.${name}: parameter type mismatch`);
+          } else assertParameterValue(`${id}.${stepId}.${name}`, target, value);
         }
       }
-      checkCycles(Object.keys(entry.steps), step => entry.steps[step].needs ?? [], `${id}.steps`);
+      checkCycles(Object.keys(entry.steps), (step) => entry.steps[step].needs ?? [], `${id}.steps`);
     }
   }
-  checkCycles(Object.keys(commands), id => {
-    const entry = commands[id];
-    return entry.kind === 'command'
-      ? entry.depends_on ?? []
-      : Object.values(entry.steps).map(step => step.uses);
-  }, 'commands');
+  checkCycles(
+    Object.keys(entries),
+    (id) => {
+      const e = entries[id];
+      return e.kind === 'command'
+        ? (e.depends_on ?? [])
+        : Object.values(e.steps).map((s) => s.uses);
+    },
+    'commands',
+  );
 }
-
-function validateDefault(path: string, parameter: Parameter): void {
-  if (parameter.type === 'select' && parameter.default !== undefined &&
-      !parameter.options?.includes(parameter.default as string)) {
-    throw new Error(`${path}: default must be one of options`);
+function checkCycles(nodes: string[], edges: (id: string) => string[], path: string): void {
+  const active = new Set<string>(),
+    done = new Set<string>();
+  function visit(id: string): void {
+    if (active.has(id)) throw new Error(`${path}: cycle at ${id}`);
+    if (done.has(id)) return;
+    active.add(id);
+    for (const n of edges(id)) visit(n);
+    active.delete(id);
+    done.add(id);
   }
-}
-
-function checkCycles(nodes: string[], edges: (node: string) => string[], path: string): void {
-  const visiting = new Set<string>();
-  const visited = new Set<string>();
-  function visit(node: string): void {
-    if (visiting.has(node)) throw new Error(`${path}: cycle at ${node}`);
-    if (visited.has(node)) return;
-    visiting.add(node);
-    for (const next of edges(node)) visit(next);
-    visiting.delete(node);
-    visited.add(node);
-  }
-  for (const node of nodes) visit(node);
+  for (const id of nodes) visit(id);
 }

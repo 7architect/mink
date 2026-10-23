@@ -17,7 +17,7 @@ export type Source1 = {
 };
 export type CommandParameter = Parameter;
 export type Parameter = {
-  type: "string" | "boolean" | "number" | "select";
+  type: "string" | "boolean" | "number" | "select" | "port" | "path" | "secret";
   description?: string;
   default?: unknown;
   /**
@@ -26,6 +26,10 @@ export type Parameter = {
   options?: [string, ...string[]];
   env?: string;
   flag?: string;
+  when?: {
+    param: string;
+    equals: string | number | boolean;
+  };
 };
 export type PipelineParameter = Parameter;
 
@@ -48,6 +52,12 @@ export interface Command {
   depends_on?: string[];
   params?: Params;
   run?: Run;
+  presets?: {
+    [k: string]: {
+      [k: string]: string | number | boolean;
+    };
+  };
+  cwd?: string;
 }
 export interface Params {
   [k: string]: CommandParameter;
@@ -56,6 +66,13 @@ export interface Run {
   mode?: "task" | "service";
   timeout_ms?: number;
   startup_timeout_ms?: number;
+  ready?: {
+    type: "process" | "tcp" | "http";
+    port?: number;
+    host?: string;
+    url?: string;
+    interval_ms?: number;
+  };
 }
 export interface Pipeline {
   kind: "pipeline";
@@ -67,6 +84,11 @@ export interface Pipeline {
   max_parallel?: number;
   steps: {
     [k: string]: Step;
+  };
+  presets?: {
+    [k: string]: {
+      [k: string]: string | number | boolean;
+    };
   };
 }
 export interface Step {

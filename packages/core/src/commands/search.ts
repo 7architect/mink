@@ -47,7 +47,7 @@ export function createCommandSearch(config: MinkConfiguration) {
           entry: structuredClone(item.entry),
           score: score ?? 1,
         }))
-      : documents.slice(0, limit).map(item => ({
+      : documents.slice(0, limit).map((item) => ({
           id: item.id,
           entry: structuredClone(item.entry),
           score: 0,
