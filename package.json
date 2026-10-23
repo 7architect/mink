@@ -1,18 +1,41 @@
 {
   "name": "mink-workspace",
   "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.28.0",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "build": "pnpm -r build"
+    "build": "pnpm -r build",
+    "build:packages": "pnpm --filter @mink/core --filter @mink/tui --filter mink build",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r typecheck && tsc --noEmit -p tsconfig.tests.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test",
+    "docs:dev": "pnpm --filter @mink/docs dev",
+    "docs:build": "pnpm --filter @mink/docs build",
+    "schema:generate": "pnpm --filter @mink/core generate-types",
+    "schema:check": "pnpm schema:generate && git diff --exit-code -- packages/core/src/types/schema.d.ts",
+    "test:pack": "node scripts/pack-smoke.mjs"
   },
   "devDependencies": {
-    "typescript": "^5.9.3"
-  },
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^11.18.0",
-      "onFail": "download"
-    }
-  },
-  "type": "module"
+    "typescript": "^5.9.3",
+    "eslint": "^9.39.0",
+    "@eslint/js": "^9.39.0",
+    "typescript-eslint": "^8.72.0",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "globals": "^16.4.0",
+    "prettier": "^3.6.2",
+    "vitest": "^5.0.5",
+    "ink-testing-library": "^4.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/node": "^24.12.2",
+    "react": "19.3.0",
+    "ink": "8.0.0"
+  }
 }

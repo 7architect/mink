@@ -1,5 +1,12 @@
 node_modules/
 dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.env*
+!.env.example
+.mink/
+.DS_Store
 idea.html
 specs.md
-docs/

@@ -1,4 +1,11 @@
 packages:
-  - 'packages/*'
+  - packages/*
+  - apps/*
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
+  sharp: true
+# Nextra 4.6.1 validates React nodes with the Zod 4.1 semantics it targets.
+# Newer Zod rejects its Layout's intentionally removed children property.
+overrides:
+  nextra@4.6.1>zod: 4.1.12
+  nextra-theme-docs@4.6.1>zod: 4.1.12
