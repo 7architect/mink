@@ -1,5 +1,5 @@
 export default {
-  index: 'Overview',
+  overview: 'Overview',
   quickstart: 'Quick start',
   cli: 'CLI & palette',
   configuration: 'Configuration',

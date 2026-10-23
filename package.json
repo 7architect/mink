@@ -18,6 +18,8 @@
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test",
     "docs:dev": "pnpm --filter @mink/docs dev",
     "docs:build": "pnpm --filter @mink/docs build",
+    "logo:assets": "python3 scripts/generate-logo-assets.py",
+    "og:generate": "node scripts/generate-og.mjs",
     "schema:generate": "pnpm --filter @mink/core generate-types",
     "schema:check": "pnpm schema:generate && git diff --exit-code -- packages/core/src/types/schema.d.ts",
     "test:pack": "node scripts/pack-smoke.mjs"

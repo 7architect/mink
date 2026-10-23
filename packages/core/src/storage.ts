@@ -10,12 +10,95 @@ export interface HistoryEntry {
   state: string;
   durationMs: number;
 }
+export const themes = [
+  'mink',
+  'slate',
+  'stone',
+  'sand',
+  'graphite',
+  'mono',
+  'forest',
+  'amber',
+  'violet',
+] as const;
+export type ThemeName = (typeof themes)[number];
+export const languages = ['en', 'ru', 'de', 'fr', 'zh'] as const;
+export type Language = (typeof languages)[number];
+export interface Settings {
+  theme: ThemeName;
+  language: Language;
+}
+export const defaultSettings: Settings = { theme: 'stone', language: 'en' };
+
+export function detectLanguage(locale = process.env.LC_ALL || process.env.LANG || ''): Language {
+  const code = locale.split(/[._@-]/)[0]?.toLowerCase();
+  return languages.find((language) => language === code) ?? defaultSettings.language;
+}
 export interface LocalState {
   history: HistoryEntry[];
   favorites: string[];
   presets: Record<string, Record<string, Record<string, ParameterValue>>>;
 }
 const fresh = (): LocalState => ({ history: [], favorites: [], presets: {} });
+
+const fallbackSettings = (): Settings => ({
+  theme: defaultSettings.theme,
+  language: detectLanguage(),
+});
+function stateRoot(directory?: string): string {
+  return (
+    directory ??
+    (process.env.XDG_STATE_HOME
+      ? join(process.env.XDG_STATE_HOME, 'mink')
+      : process.platform === 'darwin'
+        ? join(homedir(), 'Library', 'Application Support', 'mink')
+        : join(homedir(), '.local', 'state', 'mink'))
+  );
+}
+export class SettingsStore {
+  readonly file: string;
+  constructor(directory?: string) {
+    this.file = join(stateRoot(directory), 'settings.json');
+  }
+  async read(): Promise<Settings> {
+    try {
+      const data: unknown = JSON.parse(await readFile(this.file, 'utf8'));
+      if (!data || typeof data !== 'object') return fallbackSettings();
+      const value = data as Partial<Settings>;
+      return {
+        theme: themes.includes(value.theme as ThemeName)
+          ? (value.theme as ThemeName)
+          : defaultSettings.theme,
+        language: languages.includes(value.language as Language)
+          ? (value.language as Language)
+          : detectLanguage(),
+      };
+    } catch (error) {
+      if (error instanceof SyntaxError || (error as NodeJS.ErrnoException).code === 'ENOENT')
+        return fallbackSettings();
+      throw error;
+    }
+  }
+  async update(change: (settings: Settings) => void): Promise<Settings> {
+    await mkdir(dirname(this.file), { recursive: true, mode: 0o700 });
+    const release = await lockfile.lock(this.file, {
+      realpath: false,
+      retries: { retries: 30, minTimeout: 20, maxTimeout: 100 },
+      stale: 10000,
+    });
+    const temporary = this.file + '.' + randomUUID() + '.tmp';
+    try {
+      const settings = await this.read();
+      change(settings);
+      await writeFile(temporary, JSON.stringify(settings) + '\n', { mode: 0o600 });
+      await rename(temporary, this.file);
+      return settings;
+    } finally {
+      await unlink(temporary).catch(() => {});
+      await release();
+    }
+  }
+}
 const record = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value);
 function presets(value: unknown): LocalState['presets'] {
@@ -43,14 +126,10 @@ function presets(value: unknown): LocalState['presets'] {
 export class StateStore {
   readonly file: string;
   constructor(project: string, directory?: string) {
-    const root =
-      directory ??
-      (process.env.XDG_STATE_HOME
-        ? join(process.env.XDG_STATE_HOME, 'mink')
-        : process.platform === 'darwin'
-          ? join(homedir(), 'Library', 'Application Support', 'mink')
-          : join(homedir(), '.local', 'state', 'mink'));
-    this.file = join(root, createHash('sha256').update(resolve(project)).digest('hex') + '.json');
+    this.file = join(
+      stateRoot(directory),
+      createHash('sha256').update(resolve(project)).digest('hex') + '.json',
+    );
   }
   async read(): Promise<LocalState> {
     try {

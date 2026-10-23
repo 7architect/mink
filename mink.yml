@@ -1,0 +1,155 @@
+version: 1
+repository:
+  name: Mink
+  description: Разработка, проверки и документация самого Mink
+
+commands:
+  build:packages:
+    kind: command
+    name: Собрать CLI, TUI и ядро
+    description: Сборка runtime-пакетов в порядке зависимостей. После изменения интерфейса перезапусти палитру.
+    command: pnpm build:packages
+    run: { timeout_ms: 180000 }
+
+  build:
+    kind: command
+    name: Собрать весь проект
+    description: Runtime-пакеты и статический сайт документации с поисковым индексом.
+    command: pnpm build
+    run: { timeout_ms: 300000 }
+
+  lint:
+    kind: command
+    name: Проверить код линтером
+    description: ESLint для исходников, тестов и конфигурации.
+    command: pnpm lint
+    run: { timeout_ms: 60000 }
+
+  format:check:
+    kind: command
+    name: Проверить форматирование
+    description: Prettier без изменения файлов.
+    command: pnpm format:check
+    run: { timeout_ms: 60000 }
+
+  format:
+    kind: command
+    name: Отформатировать файлы
+    description: Применить Prettier ко всему репозиторию. Эта команда изменяет файлы.
+    command: pnpm format
+    run: { timeout_ms: 60000 }
+
+  typecheck:
+    kind: command
+    name: Проверить типы
+    description: TypeScript для пакетов, сайта документации и тестов.
+    command: pnpm typecheck
+    depends_on: [build:packages]
+    run: { timeout_ms: 120000 }
+
+  test:
+    kind: command
+    name: Запустить тесты
+    description: Все тесты или выбранный набор. CLI предварительно собирается из текущих исходников.
+    command: pnpm test "$MINK_TEST_SUITE"
+    depends_on: [build:packages]
+    params:
+      suite:
+        type: select
+        description: Набор тестов
+        options:
+          - tests
+          - tests/core.test.ts
+          - tests/runtime.test.ts
+          - tests/cli.test.ts
+          - tests/tui
+          - tests/examples.test.ts
+        default: tests
+        env: MINK_TEST_SUITE
+    presets:
+      tui: { suite: tests/tui }
+      core: { suite: tests/core.test.ts }
+    run: { timeout_ms: 120000 }
+
+  test:watch:
+    kind: command
+    name: Следить за изменениями тестов
+    description: Vitest watch. Пересборка CLI перед запуском; после изменения CLI повторно собери пакеты и перезапусти этот сервис.
+    command: pnpm test:watch
+    depends_on: [build:packages]
+    run:
+      mode: service
+      ready: { type: process }
+
+  test:pack:
+    kind: command
+    name: Проверить установку пакетов
+    description: Упаковать три runtime-пакета, установить их в отдельный временный проект и запустить установленный mink.
+    command: pnpm test:pack
+    depends_on: [build:packages]
+    run: { timeout_ms: 180000 }
+
+  schema:check:
+    kind: command
+    name: Проверить актуальность схемы
+    description: Перегенерировать типы из JSON Schema и проверить отсутствие расхождений с Git.
+    command: pnpm schema:check
+    run: { timeout_ms: 60000 }
+
+  schema:generate:
+    kind: command
+    name: Перегенерировать типы конфигурации
+    description: Обновить packages/core/src/types/schema.d.ts после изменения JSON Schema. Эта команда изменяет файл.
+    command: pnpm schema:generate
+    run: { timeout_ms: 60000 }
+
+  docs:dev:
+    kind: command
+    name: Открыть документацию в режиме разработки
+    description: Nextra на http://127.0.0.1:4319. Ctrl+S — сервисы, o — открыть сайт в браузере.
+    command: pnpm docs:dev --port 4319
+    run:
+      mode: service
+      startup_timeout_ms: 60000
+      ready:
+        type: http
+        url: http://127.0.0.1:4319
+        interval_ms: 250
+
+  docs:build:
+    kind: command
+    name: Собрать сайт документации
+    description: Статический экспорт и поиск Pagefind в apps/docs/out.
+    command: pnpm docs:build
+    run: { timeout_ms: 300000 }
+
+  check:
+    kind: pipeline
+    name: Проверить проект
+    description: Схема, линтер, форматирование, типы и тесты. Общая предварительная сборка выполняется один раз.
+    max_parallel: 2
+    steps:
+      schema: { uses: schema:check }
+      lint: { uses: lint, needs: [schema] }
+      formatting: { uses: format:check, needs: [schema] }
+      types: { uses: typecheck, needs: [schema] }
+      tests: { uses: test, needs: [schema] }
+
+  verify:
+    kind: pipeline
+    name: Полностью проверить реализацию
+    description: Проверки проекта, установка пакетов и production-сборка документации. Ничего не публикует.
+    max_parallel: 2
+    steps:
+      checks: { uses: check }
+      packages: { uses: test:pack, needs: [checks] }
+      documentation: { uses: docs:build, needs: [checks] }
+
+  dev:
+    kind: pipeline
+    name: Запустить рабочее окружение
+    description: Документация с hot reload и Vitest watch. Оба сервиса принадлежат текущей сессии Mink.
+    max_parallel: 2
+    steps:
+      documentation: { uses: docs:dev }
+      tests: { uses: test:watch }

@@ -1,38 +1,41 @@
-import type { Metadata } from 'next';
-import { Footer, Layout, Navbar } from 'nextra-theme-docs';
+import type { Metadata, Viewport } from 'next';
 import { Head } from 'nextra/components';
-import { getPageMap } from 'nextra/page-map';
 import 'nextra-theme-docs/style.css';
+import { defaultDescription, siteMetadata, siteUrl } from '@/lib/seo';
 import './style.css';
+
 export const metadata: Metadata = {
-  title: { default: 'Mink — repository control center', template: '%s · Mink' },
-  description: 'Find, configure and run project commands from one terminal palette.',
+  ...siteMetadata('Mink: terminal command palette', defaultDescription),
   icons: { icon: '/logo.png' },
 };
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+
+export const viewport: Viewport = {
+  themeColor: '#080808',
+  colorScheme: 'dark',
+};
+
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Mink',
+  url: siteUrl.toString(),
+  description: defaultDescription,
+  inLanguage: ['en', 'ru', 'de', 'fr', 'zh'],
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" dir="ltr" suppressHydrationWarning>
-      <Head color={{ hue: 165, saturation: 70 }} />
+    <html lang="en" dir="ltr" className="dark" suppressHydrationWarning>
+      <Head
+        color={{ hue: 0, saturation: 0, lightness: { dark: 100, light: 10 } }}
+        backgroundColor={{ dark: 'rgb(8,8,8)', light: 'rgb(250,250,250)' }}
+      />
       <body>
-        <Layout
-          navbar={
-            <Navbar
-              logo={
-                <span className="mink-brand">
-                  <img src="/logo.png" alt="" width="32" height="32" />
-                  mink<span className="mink-alpha">alpha 0.1</span>
-                </span>
-              }
-              projectLink="https://github.com/yaroslavlky/mink"
-            />
-          }
-          pageMap={await getPageMap()}
-          docsRepositoryBase="https://github.com/yaroslavlky/mink/tree/main/apps/docs/content"
-          editLink="Edit this page on GitHub"
-          footer={<Footer>MIT · Mink · A calmer way to run your repository.</Footer>}
-        >
-          {children}
-        </Layout>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
+        {children}
       </body>
     </html>
   );

@@ -41,6 +41,8 @@ Each spawn creates a detached POSIX process group. Group termination cleans desc
 
 ## Interface and state boundaries
 
+The TUI separates `screens` (presentation and local keyboard navigation), `components` (frame, panels, badges and log viewport), `hooks` (session, project state, forms and resize), and `model` (pure projections and bounded log storage). The app component composes those parts and coordinates navigation. Screens do not spawn processes or write state files.
+
 CLI and TUI call the same core facade (`createMink`). CLI uses raw events; the palette sanitizes and bounds its in-memory output, periodically refreshing rather than rerendering every chunk. Foreground stdin temporarily unmounts Ink and returns afterward. Config/search snapshots are detached from internal configuration.
 
 The state store is separate from execution. Per-project JSON writes use a cross-process lock and atomic rename. History failures cannot turn a successful task into a failed task. Preset writes validate against the current schema and exclude secrets. Project state is convenience data; the runtime's source of process ownership remains the current session.

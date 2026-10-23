@@ -27,16 +27,18 @@ Repeat `--param name=value` for different parameters. Strings containing spaces 
 
 ## Keyboard controls
 
-| Screen         | Keys                                                                                          |
-| -------------- | --------------------------------------------------------------------------------------------- |
-| Palette        | Type to search; ↑/↓ select; Enter configure; Ctrl+F favorite                                  |
-| Parameter form | Enter next; Shift+Tab previous; arrows change select/boolean                                  |
-| Preview        | Enter run; Shift+Enter foreground stdin; `e` edit; `p` load preset; `s` save preset; `c` copy |
-| Output         | Ctrl+C cancel current invocation; `r` rerun after completion                                  |
-| Services       | ↑/↓ select; `s` stop; `r` restart; `k` kill; `o` open HTTP health URL                         |
-| Anywhere       | Ctrl+S services; Esc palette (or exit from palette); Ctrl+C exit when idle                    |
+| Screen         | Keys                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Palette        | Type to search; ↑/↓ select; Enter configure; Ctrl+F favorite                                                              |
+| Parameter form | Enter next; Ctrl+B previous; arrows change select/boolean                                                                 |
+| Preview        | Enter run; Shift+Enter foreground stdin; `e` edit; `p` load preset; `s` save preset; `c` copy                             |
+| Output         | Ctrl+C cancel current invocation; `r` rerun after completion                                                              |
+| Services       | ↑/↓ select; `s` stop; `r` restart; `k` kill; `o` open HTTP health URL                                                     |
+| Anywhere       | Tab next tab; Shift+Tab previous tab; Ctrl+P commands; Ctrl+O output; Ctrl+S services; Esc palette; Ctrl+C exit when idle |
 
-Favorites appear first; recent commands follow. The output view retains the most recent 256 KiB in at most 1,000 chunks and renders a tail sized to the terminal. Resizing updates the layout. Child terminal control sequences are stripped in the TUI.
+Tab cycles through Commands → Output → Services; Shift+Tab reverses the order. Switching tabs preserves the search, selected command, form position, and unsubmitted input. Keyboard actions apply only to the visible screen. Ctrl+B moves to the previous parameter within a form.
+
+Favorites appear first; recent commands follow. The output view retains the most recent 256 KiB in at most 1,000 chunks and renders a tail sized to the terminal. PageUp/PageDown scroll and pause following; End resumes live output. Resizing switches between split and stacked panels. The minimum viewport is 48 × 20. Child terminal control sequences are stripped in the TUI.
 
 Clipboard support uses `pbcopy` on macOS or `wl-copy`/`xclip` on Linux. Missing tools produce an error in the interface. Copy includes the working directory and environment exports inside a subshell; secret values cannot be copied. Pipelines have no single shell command to copy.
 

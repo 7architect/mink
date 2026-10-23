@@ -5,6 +5,7 @@ export default defineConfig({
     testTimeout: 15000,
     hookTimeout: 30000,
     maxWorkers: 2,
+    env: { LANG: 'en_US.UTF-8', LC_ALL: '' },
   },
   resolve: {
     alias: { '@mink/core': new URL('./packages/core/src/index.ts', import.meta.url).pathname },

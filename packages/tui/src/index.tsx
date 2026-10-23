@@ -1,9 +1,9 @@
 import { render } from 'ink';
-import type { Mink, ParameterValue } from '@mink/core';
+import type { Mink, ParameterValue, Settings } from '@mink/core';
 import { MinkApp } from './app.js';
 export { MinkApp } from './app.js';
 
-export async function openTui(mink: Mink): Promise<void> {
+export async function openTui(mink: Mink, overrides: Partial<Settings> = {}): Promise<void> {
   let foreground: { id: string; values: Record<string, ParameterValue> } | undefined;
   let app: ReturnType<typeof render> | undefined;
   let foregroundController: AbortController | undefined;
@@ -17,19 +17,24 @@ export async function openTui(mink: Mink): Promise<void> {
   };
   const interrupt = () => signal('SIGINT');
   const terminate = () => signal('SIGTERM');
+  // Ink only clears on shrinking terminals; widening leaves the previous
+  // frame's border behind. Force a clean repaint for every resize.
+  const resized = () => app?.clear();
   process.on('SIGINT', interrupt);
   process.on('SIGTERM', terminate);
+  process.stdout.on('resize', resized);
   try {
     do {
       foreground = undefined;
       app = render(
         <MinkApp
           mink={mink}
+          overrides={overrides}
           onForeground={(id, values) => {
             foreground = { id, values };
           }}
         />,
-        { exitOnCtrlC: false, maxFps: 20 },
+        { exitOnCtrlC: false, maxFps: 20, alternateScreen: true },
       );
       try {
         await app.waitUntilExit();
@@ -61,5 +66,6 @@ export async function openTui(mink: Mink): Promise<void> {
   } finally {
     process.off('SIGINT', interrupt);
     process.off('SIGTERM', terminate);
+    process.stdout.off('resize', resized);
   }
 }

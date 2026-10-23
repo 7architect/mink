@@ -40,7 +40,7 @@ node packages/cli/dist/index.js run greet --param person=Ada --config examples/d
 - Сервисы с process/TCP/HTTP readiness; просмотр вывода, stop/restart/kill и открытие HTTP health URL.
 - Локальное состояние с блокировкой и атомарной записью; параметры и вывод не сохраняются в истории.
 
-В палитре: ↑↓ выбрать, Enter настроить/запустить, Ctrl+F избранное, Ctrl+S сервисы, Esc назад, Ctrl+C отменить/выйти. В preview: `e` изменить, `p` загрузить preset, `s` сохранить, `c` копировать; Shift+Enter — запустить с stdin вне Ink.
+Tab переключает вкладки Commands → Output → Services → Settings, Shift+Tab — обратно. В настройках (Ctrl+G) выбираются темы и язык интерфейса: English, Русский, Deutsch, Français, 中文. Поиск и незавершённый ввод сохраняются. В палитре: ↑↓ выбрать, Enter настроить/запустить, Ctrl+F избранное, Ctrl+S сервисы, Esc назад, Ctrl+C отменить/выйти. В форме: Ctrl+B — предыдущий параметр. В preview: `e` изменить, `p` загрузить preset, `s` сохранить, `c` копировать; Shift+Enter — запустить с stdin вне Ink.
 
 ## Конфигурация
 
@@ -67,16 +67,33 @@ YAML перекрывает обнаруженные команды с тем ж
 
 ## Документация и разработка
 
+В корне есть [mink.yml](mink.yml) для работы над самим Mink. После сборки можно открыть
+палитру с описанными командами, запустить проверки или выбрать набор тестов:
+
+```sh
+node packages/cli/dist/index.js ui --no-discovery
+node packages/cli/dist/index.js run check --no-discovery
+node packages/cli/dist/index.js run test --preset tui --no-discovery
+node packages/cli/dist/index.js run verify --no-discovery
+```
+
+`check` проверяет схему, линтер, форматирование, типы и тесты, разделяя одну сборку
+runtime-пакетов между задачами. `verify` дополнительно проверяет установку пакетов и собирает
+документацию. `dev` запускает Vitest watch и сайт документации на `http://127.0.0.1:4319`;
+сервисами можно управлять через Ctrl+S. `--no-discovery` оставляет только описанный каталог;
+без этого флага также доступны автоматически найденные workspace-скрипты.
+
 ```sh
 pnpm docs:dev       # сайт Nextra на localhost:3000
 pnpm docs:build     # static export + Pagefind → apps/docs/out
+pnpm og:generate    # Chromium + WebGL → apps/docs/public/og.png
 pnpm build:packages
 pnpm check          # ESLint + Prettier + TypeScript + Vitest
 pnpm schema:check
 pnpm test:pack       # установка tarballs в отдельный временный проект
 ```
 
-[Содержимое документации](apps/docs/content) включает руководство, CLI, конфигурацию, параметры, discovery, пайплайны, сервисы, состояние, безопасность и [архитектуру](apps/docs/content/architecture.mdx). Сайт можно разместить на любом static hosting; автоматическая публикация не включена.
+[Содержимое документации](apps/docs/content) включает руководство, CLI, конфигурацию, параметры, discovery, пайплайны, сервисы, состояние, безопасность и [архитектуру](apps/docs/content/architecture.mdx). Главная страница сайта — отдельный лендинг с локализованными версиями `/ru/`, `/de/`, `/fr/` и `/zh/`, документация начинается с `/overview/`. Сайт можно разместить на любом static hosting; автоматическая публикация не включена. Перед публикацией задайте `NEXT_PUBLIC_SITE_URL`, чтобы canonical и Open Graph ссылались на реальный домен. `og:generate` запускайте после `docs:build`: скрипт снимает карточку из собранного `og-card` через Chromium с аппаратным WebGL.
 
 Ядро в `packages/core` не зависит от React/Ink. CLI и TUI используют общий preflight, планировщик и runtime. Подробности API — в [README ядра](packages/core/README.md).
 

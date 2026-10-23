@@ -11,7 +11,14 @@ import { createCommandSearch, type CommandSearchResult } from './commands/search
 import { planExecution, type ExecutionPlan } from './commands/plan.js';
 import { Session } from './runtime/session.js';
 import type { RunEvent, RunOptions, RunResult, ServiceInfo } from './runtime/process.js';
-import { StateStore, type LocalState } from './storage.js';
+import {
+  SettingsStore,
+  StateStore,
+  languages,
+  themes,
+  type LocalState,
+  type Settings,
+} from './storage.js';
 import type { MinkConfiguration } from './types/schema.js';
 export interface Mink {
   readonly configFile: string;
@@ -31,6 +38,8 @@ export interface Mink {
   stopService(instance: string, force?: boolean): Promise<void>;
   restartService(instance: string): Promise<RunResult>;
   state(): Promise<LocalState>;
+  settings(): Promise<Settings>;
+  updateSettings(change: Partial<Settings>): Promise<Settings>;
   favorite(id: string): Promise<void>;
   savePreset(id: string, name: string, values: Record<string, ParameterValue>): Promise<void>;
   preset(id: string, name: string): Promise<Record<string, ParameterValue>>;
@@ -47,7 +56,8 @@ export async function createMink(options: MinkOptions = {}): Promise<Mink> {
   const logger = options.logger ?? createConsola().withTag('mink');
   const loaded = await loadConfig(options.configFile, options.cwd, options.discover ?? true);
   const session = new Session(),
-    store = new StateStore(loaded.file, options.stateDirectory);
+    store = new StateStore(loaded.file, options.stateDirectory),
+    settingsStore = new SettingsStore(options.stateDirectory);
   const getEntry = (id: string) => {
     if (!Object.hasOwn(loaded.config.commands, id)) throw new Error(`Unknown command: ${id}`);
     return loaded.config.commands[id];
@@ -100,6 +110,17 @@ export async function createMink(options: MinkOptions = {}): Promise<Mink> {
     restartService: (id) => session.restart(id),
     dispose: () => session.dispose(),
     state: () => store.read(),
+    settings: () => settingsStore.read(),
+    async updateSettings(change) {
+      if (change.theme !== undefined && !themes.includes(change.theme))
+        throw new Error(`Unknown theme: ${change.theme}`);
+      if (change.language !== undefined && !languages.includes(change.language))
+        throw new Error(`Unknown language: ${change.language}`);
+      return settingsStore.update((settings) => {
+        if (change.theme !== undefined) settings.theme = change.theme;
+        if (change.language !== undefined) settings.language = change.language;
+      });
+    },
     async favorite(id) {
       getEntry(id);
       await store.update((state) => {
@@ -160,6 +181,8 @@ export async function createMink(options: MinkOptions = {}): Promise<Mink> {
     },
   };
 }
+export { themes, languages, defaultSettings, detectLanguage } from './storage.js';
+export type { Settings, ThemeName, Language } from './storage.js';
 export { validateConfig } from './config/load.js';
 export { initConfig } from './config/init.js';
 export {

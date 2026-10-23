@@ -1,3 +1,71 @@
+/* The documentation reuses the landing palette: near-black surfaces, white
+   primary accents, muted grey text and the same neutral border scale. */
+:root {
+  --mink-font-family: Inter, Geist, 'Helvetica Neue', Arial, sans-serif;
+  --mink-background: #080808;
+  --mink-foreground: #f5f5f5;
+  --mink-card: #111111;
+  --mink-popover: #1c1c1c;
+  --mink-muted: #161616;
+  --mink-muted-foreground: #8a8a8a;
+  --mink-border: #222222;
+  --mink-ring: #505050;
+  --mink-sidebar: #0c0c0c;
+  --mink-sidebar-border: #1a1a1a;
+
+  --x-font-sans: var(--mink-font-family);
+  --x-default-font-family: var(--mink-font-family);
+}
+
+html,
+body {
+  font-family: var(--mink-font-family);
+}
+
+body {
+  background: var(--mink-background);
+  color: var(--mink-foreground);
+}
+
+/* Remap Nextra's neutral scale onto the landing tokens. The documentation is
+   always dark (see the forced theme in the docs layout), so this only touches
+   the values used inside the dark theme. */
+.dark {
+  --x-color-neutral-50: #f5f5f5;
+  --x-color-neutral-100: #eaeaea;
+  --x-color-neutral-200: #d4d4d4;
+  --x-color-neutral-300: #a7a7a7;
+  --x-color-neutral-400: #8a8a8a;
+  --x-color-neutral-500: #737373;
+  --x-color-neutral-600: #5c5c5c;
+  --x-color-neutral-700: #3a3a3a;
+  --x-color-neutral-800: #222222;
+  --x-color-neutral-900: #111111;
+
+  --x-color-gray-50: #f5f5f5;
+  --x-color-gray-100: #f5f5f5;
+  --x-color-gray-200: #d4d4d4;
+  --x-color-gray-300: #a7a7a7;
+  --x-color-gray-400: #8a8a8a;
+  --x-color-gray-500: #737373;
+  --x-color-gray-600: #5c5c5c;
+  --x-color-gray-700: #3a3a3a;
+  --x-color-gray-800: #262626;
+  --x-color-gray-900: #171717;
+
+  --x-color-slate-200: #f5f5f5;
+  --x-color-slate-700: #c9c9c9;
+}
+
+/* Keep Nextra chrome on the same surfaces as the landing page. */
+.nextra-navbar {
+  background: color-mix(in srgb, var(--mink-background) 80%, transparent);
+}
+
+.nextra-sidebar {
+  background: var(--mink-sidebar);
+}
+
 .mink-brand {
   display: inline-flex;
   align-items: center;
@@ -5,6 +73,7 @@
   font-size: 1.35rem;
   font-weight: 750;
   letter-spacing: -0.04em;
+  color: var(--mink-foreground);
 }
 .mink-brand img {
   border-radius: 0.55rem;
@@ -15,15 +84,16 @@
     monospace;
   letter-spacing: 0;
   padding: 0.2rem 0.4rem;
-  border: 1px solid #64748b66;
+  border: 1px solid #333333;
   border-radius: 0.3rem;
   margin-left: 0.25rem;
+  color: var(--mink-muted-foreground);
 }
 .mink-hero {
   padding: 2rem 0 1rem;
 }
 .mink-kicker {
-  color: #10b981;
+  color: var(--mink-foreground);
   font:
     600 0.75rem/1.5 ui-monospace,
     monospace;
@@ -41,10 +111,7 @@
   font-size: 1.12rem;
   line-height: 1.7;
   max-width: 36rem;
-  color: #64748b;
-}
-.dark .mink-hero p {
-  color: #a1a1aa;
+  color: var(--mink-muted-foreground);
 }
 .mink-links {
   display: flex;
@@ -53,31 +120,31 @@
   margin: 1.8rem 0;
 }
 .mink-links a {
-  border: 1px solid #64748b55;
+  border: 1px solid var(--mink-border);
   border-radius: 0.6rem;
   padding: 0.65rem 1rem;
   font-weight: 600;
 }
 .mink-links a:first-child {
-  background: #059669;
-  color: white;
-  border-color: #059669;
+  background: var(--mink-foreground);
+  color: var(--mink-background);
+  border-color: var(--mink-foreground);
 }
 .mink-terminal {
-  border: 1px solid #64748b44;
+  border: 1px solid var(--mink-border);
   border-radius: 0.8rem;
   overflow: hidden;
   margin: 2rem 0;
-  background: #101916;
-  color: #d7eee3;
+  background: #0c0c0c;
+  color: var(--mink-foreground);
 }
 .mink-terminal-label {
-  border-bottom: 1px solid #64748b44;
+  border-bottom: 1px solid var(--mink-border);
   padding: 0.7rem 1rem;
   font:
     0.72rem ui-monospace,
     monospace;
-  color: #91a99d;
+  color: var(--mink-muted-foreground);
 }
 .mink-terminal pre {
   padding: 1.2rem;
@@ -92,9 +159,10 @@
   margin: 2rem 0;
 }
 .mink-grid article {
-  border: 1px solid #64748b44;
+  border: 1px solid var(--mink-border);
   border-radius: 0.7rem;
   padding: 1.3rem;
+  background: var(--mink-card);
 }
 .mink-grid h2 {
   font-weight: 650;
@@ -111,4 +179,18 @@
   .mink-hero {
     padding-top: 1rem;
   }
+}
+
+/* The landing page has its own tokens in globals.css; these rules only keep
+   the document background consistent before that stylesheet is applied. */
+.mink-landing-page {
+  min-height: 100vh;
+  background: var(--mink-background);
+}
+html:has(.mink-landing-page) {
+  background: var(--mink-background) !important;
+  color-scheme: dark;
+}
+body:has(.mink-landing-page) {
+  min-height: 100vh;
 }

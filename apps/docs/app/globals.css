@@ -1,0 +1,152 @@
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-family);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+/* Landing-only tokens from the Polar design spec. Scoped so Nextra docs keep their styles. */
+.mink-landing-page {
+  --font-family: Inter, Geist, 'Helvetica Neue', Arial, sans-serif;
+  --radius: 0.75rem;
+  --background: #080808;
+  --foreground: #f5f5f5;
+  --card: #111111;
+  --card-foreground: #f5f5f5;
+  --popover: #1c1c1c;
+  --popover-foreground: #f5f5f5;
+  --primary: #ffffff;
+  --primary-foreground: #080808;
+  --secondary: #252525;
+  --secondary-foreground: #f5f5f5;
+  --muted: #161616;
+  --muted-foreground: #8a8a8a;
+  --accent: #1c1c1c;
+  --accent-foreground: #f5f5f5;
+  --destructive: #d4d4d4;
+  --border: #222222;
+  --input: #252525;
+  --ring: #505050;
+  --chart-1: #eaeaea;
+  --chart-2: #a7a7a7;
+  --chart-3: #666666;
+  --chart-4: #c9c9c9;
+  --chart-5: #353535;
+  --sidebar: #0c0c0c;
+  --sidebar-foreground: #f5f5f5;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #080808;
+  --sidebar-accent: #1c1c1c;
+  --sidebar-accent-foreground: #f5f5f5;
+  --sidebar-border: #1a1a1a;
+  --sidebar-ring: #505050;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-family);
+  min-height: 100vh;
+}
+
+html:has(.mink-landing-page),
+body:has(.mink-landing-page) {
+  background: #080808;
+}
+
+/* ARC footer and button tokens, mapped onto the Polar palette. */
+.mink-landing-page {
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --footer-pad: 4rem;
+  --duration-instant: 0ms;
+  --duration-fast: 150ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --font-body: var(--font-family);
+  --surface: #111111;
+  --surface-muted: #161616;
+  --border-subtle: #1a1a1a;
+  --border-strong: #333333;
+  --text-secondary: #8a8a8a;
+  --text-muted: #666666;
+  --tone: #4ade80;
+  --success: #4ade80;
+  --warning: #facc15;
+  --danger: #f87171;
+  --control-height-sm: 2rem;
+  --control-height-md: 2.5rem;
+  --control-height-lg: 3rem;
+  --radius-control: 9999px;
+  --shadow-resting: none;
+  --fade-start: rgba(8, 8, 8, 0);
+  --fade-end: #080808;
+  --arc-gradient-from: #ffffff;
+  --arc-gradient-to: #6b6b6b;
+}
+
+@keyframes mink-flow {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+
+/* Tailwind preflight is off for the landing, so give borders the theme color instead of currentColor. */
+.mink-landing-page :where(*, ::before, ::after) {
+  border-color: var(--border);
+}
+
+/* Without preflight, buttons keep the browser's outset border. */
+.mink-landing-page :where(button) {
+  border-width: 0;
+  border-style: solid;
+}
+
+/* Align the footer content with the page container. */
+.mink-landing-page footer {
+  --footer-pad: 0px;
+}

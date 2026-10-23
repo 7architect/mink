@@ -4,10 +4,15 @@ import { parseArgs } from 'node:util';
 import {
   createMink,
   initConfig,
+  languages,
   parseParameter,
+  themes,
+  type Language,
   type Mink,
   type ParameterValue,
   type RunResult,
+  type Settings,
+  type ThemeName,
 } from '@mink/core';
 const strictArguments = defineCittyPlugin({
   name: 'strict-arguments',
@@ -244,13 +249,31 @@ const commands = {
 const ui = defineCommand({
   plugins: [strictArguments],
   meta: { description: 'Open the interactive command palette' },
-  args: common,
+  args: {
+    ...common,
+    theme: { type: 'string', description: `Theme for this session only: ${themes.join(', ')}` },
+    lang: {
+      type: 'string',
+      description: `Language for this session only: ${languages.join(', ')}`,
+    },
+  },
   async run({ args }) {
     if (!process.stdin.isTTY || !process.stdout.isTTY)
       throw new Error('The palette needs a TTY. Use mink list, mink run <task>, or mink --help.');
+    const overrides: Partial<Settings> = {};
+    if (args.theme !== undefined) {
+      if (!(themes as readonly string[]).includes(args.theme))
+        throw new Error(`Unknown theme: ${args.theme}. Use one of: ${themes.join(', ')}`);
+      overrides.theme = args.theme as ThemeName;
+    }
+    if (args.lang !== undefined) {
+      if (!(languages as readonly string[]).includes(args.lang))
+        throw new Error(`Unknown language: ${args.lang}. Use one of: ${languages.join(', ')}`);
+      overrides.language = args.lang as Language;
+    }
     await session(args, async (m) => {
       const { openTui } = await import('@mink/tui');
-      await openTui(m);
+      await openTui(m, overrides);
     });
   },
 });
