@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { landingCopy, localeHref, locales, type Locale } from '@/components/landing-copy';
-import { ogImage, ogLocale, siteName } from '@/lib/seo';
+import { absoluteUrl, ogImage, ogLocale, siteName } from '@/lib/seo';
 
 export function landingMetadata(locale: Locale): Metadata {
   const copy = landingCopy[locale];
@@ -8,10 +8,10 @@ export function landingMetadata(locale: Locale): Metadata {
     title: { absolute: copy.meta.title },
     description: copy.meta.description,
     alternates: {
-      canonical: localeHref[locale],
+      canonical: absoluteUrl(localeHref[locale]),
       languages: {
-        'x-default': localeHref.en,
-        ...Object.fromEntries(locales.map((code) => [code, localeHref[code]])),
+        'x-default': absoluteUrl(localeHref.en),
+        ...Object.fromEntries(locales.map((code) => [code, absoluteUrl(localeHref[code])])),
       },
     },
     robots: {
@@ -30,7 +30,7 @@ export function landingMetadata(locale: Locale): Metadata {
       siteName,
       title: copy.meta.title,
       description: copy.meta.description,
-      url: localeHref[locale],
+      url: absoluteUrl(localeHref[locale]),
       locale: ogLocale[locale],
       alternateLocale: locales.filter((code) => code !== locale).map((code) => ogLocale[code]),
       images: [ogImage],

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
-import { siteUrl } from '@/lib/seo';
+import { absoluteUrl, siteUrl } from '@/lib/seo';
+import { withBasePath } from '@/lib/base-path';
 
 export const dynamic = 'force-static';
 
@@ -9,10 +10,10 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/og-card/'],
+        disallow: [withBasePath('/og-card/')],
       },
     ],
-    sitemap: new URL('/sitemap.xml', siteUrl).toString(),
+    sitemap: absoluteUrl('/sitemap.xml'),
     host: siteUrl.origin,
   };
 }

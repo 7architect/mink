@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Head } from 'nextra/components';
 import 'nextra-theme-docs/style.css';
-import { defaultDescription, siteMetadata, siteUrl } from '@/lib/seo';
+import { absoluteUrl, defaultDescription, siteMetadata } from '@/lib/seo';
 import './style.css';
 
 export const metadata: Metadata = {
@@ -18,7 +18,7 @@ const websiteJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
   name: 'Mink',
-  url: siteUrl.toString(),
+  url: absoluteUrl('/'),
   description: defaultDescription,
   inLanguage: ['en', 'ru', 'de', 'fr', 'zh'],
 };

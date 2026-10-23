@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { localeHref, locales } from '@/components/landing-copy';
-import { siteUrl } from '@/lib/seo';
+import { absoluteUrl } from '@/lib/seo';
 
 export const dynamic = 'force-static';
 
@@ -22,11 +22,11 @@ const docsPages = [
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
   const languages = Object.fromEntries(
-    locales.map((code) => [code, new URL(localeHref[code], siteUrl).toString()]),
+    locales.map((code) => [code, absoluteUrl(localeHref[code])]),
   );
 
   const landingPages = locales.map((code) => ({
-    url: new URL(localeHref[code], siteUrl).toString(),
+    url: absoluteUrl(localeHref[code]),
     lastModified,
     changeFrequency: 'monthly' as const,
     priority: code === 'en' ? 1 : 0.9,
@@ -34,7 +34,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }));
 
   const docs = docsPages.map((slug) => ({
-    url: new URL(`/${slug}/`, siteUrl).toString(),
+    url: absoluteUrl(`/${slug}/`),
     lastModified,
     changeFrequency: 'monthly' as const,
     priority: 0.8,

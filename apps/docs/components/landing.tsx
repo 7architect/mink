@@ -41,7 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { repoUrl, siteUrl } from '@/lib/seo';
+import { absoluteUrl, repoUrl } from '@/lib/seo';
+import { withBasePath } from '@/lib/base-path';
 
 const repo = 'https://github.com/yaroslavlky/mink';
 
@@ -117,7 +118,7 @@ export function Landing({ locale }: { locale: Locale }) {
   const navItems = [
     [copy.nav.features, '#features'],
     [copy.nav.compare, '#compare'],
-    [copy.nav.docs, '/overview/'],
+    [copy.nav.docs, withBasePath('/overview/')],
     [copy.nav.faq, '#faq'],
   ] as const;
 
@@ -141,7 +142,7 @@ export function Landing({ locale }: { locale: Locale }) {
     applicationCategory: 'DeveloperApplication',
     operatingSystem: 'Linux, macOS',
     description: copy.meta.description,
-    url: new URL(localeHref[locale], siteUrl).toString(),
+    url: absoluteUrl(localeHref[locale]),
     downloadUrl: repoUrl,
     license: 'https://opensource.org/licenses/MIT',
     inLanguage: locale,
@@ -158,8 +159,12 @@ export function Landing({ locale }: { locale: Locale }) {
         className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur"
       >
         <div className="mx-auto grid max-w-[1280px] grid-cols-[1fr_auto_1fr] items-center gap-6 px-6 py-3">
-          <a href={localeHref[locale]} aria-label="Mink home" className="justify-self-start">
-            <img src="/logo-wordmark.svg" alt="Mink" className="h-7 w-auto" />
+          <a
+            href={withBasePath(localeHref[locale])}
+            aria-label="Mink home"
+            className="justify-self-start"
+          >
+            <img src={withBasePath('/logo-wordmark.svg')} alt="Mink" className="h-7 w-auto" />
           </a>
           <NavigationMenu viewport={false} className="hidden justify-self-center lg:flex">
             <NavigationMenuList>
@@ -180,7 +185,7 @@ export function Landing({ locale }: { locale: Locale }) {
               value={locale}
               onValueChange={(value) => {
                 if (!value) return;
-                window.location.href = localeHref[value as Locale];
+                window.location.href = withBasePath(localeHref[value as Locale]);
               }}
             >
               <SelectTrigger
@@ -266,7 +271,7 @@ export function Landing({ locale }: { locale: Locale }) {
             </p>
             <div className="flex flex-wrap gap-3">
               <Button size="lg" className="rounded-full px-5" asChild>
-                <a href="/quickstart/">
+                <a href={withBasePath('/quickstart/')}>
                   {copy.hero.primaryCta} <ArrowRight />
                 </a>
               </Button>
@@ -276,7 +281,7 @@ export function Landing({ locale }: { locale: Locale }) {
                 className="rounded-full border-border bg-background/40 px-5"
                 asChild
               >
-                <a href="/overview/">{copy.hero.secondaryCta}</a>
+                <a href={withBasePath('/overview/')}>{copy.hero.secondaryCta}</a>
               </Button>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -290,7 +295,10 @@ export function Landing({ locale }: { locale: Locale }) {
             </div>
           </div>
           <div data-gsap="hero-visual">
-            <TerminalMockup src="/screenshots/hero-live.png" alt={copy.hero.imageAlt} />
+            <TerminalMockup
+              src={withBasePath('/screenshots/hero-live.png')}
+              alt={copy.hero.imageAlt}
+            />
           </div>
         </div>
       </section>
@@ -363,8 +371,10 @@ export function Landing({ locale }: { locale: Locale }) {
           variant="columns"
           brand={{
             name: 'Mink',
-            href: localeHref[locale],
-            mark: <img src="/logo-wordmark.svg" alt="Mink" className="h-7 w-auto" />,
+            href: withBasePath(localeHref[locale]),
+            mark: (
+              <img src={withBasePath('/logo-wordmark.svg')} alt="Mink" className="h-7 w-auto" />
+            ),
           }}
           tagline={copy.footer.tagline}
           columns={[
@@ -379,8 +389,8 @@ export function Landing({ locale }: { locale: Locale }) {
             {
               title: copy.footer.docs,
               links: [
-                { label: copy.footer.overview, href: '/overview/' },
-                { label: copy.footer.quickstart, href: '/quickstart/' },
+                { label: copy.footer.overview, href: withBasePath('/overview/') },
+                { label: copy.footer.quickstart, href: withBasePath('/quickstart/') },
               ],
             },
             {

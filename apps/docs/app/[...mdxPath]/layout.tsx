@@ -1,5 +1,6 @@
 import { Footer, Layout, Navbar } from 'nextra-theme-docs';
 import { getPageMap } from 'nextra/page-map';
+import { withBasePath } from '@/lib/base-path';
 
 const landingRoutes = new Set(['/', '/ru', '/de', '/fr', '/zh']);
 
@@ -17,7 +18,7 @@ export default async function DocsLayout({ children }: { children: React.ReactNo
         <Navbar
           logo={
             <span className="mink-brand">
-              <img src="/logo.png" alt="" width="32" height="32" />
+              <img src={withBasePath('/logo.png')} alt="" width="32" height="32" />
               mink<span className="mink-alpha">alpha 0.1</span>
             </span>
           }

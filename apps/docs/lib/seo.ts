@@ -1,11 +1,17 @@
 import type { Metadata } from 'next';
 import type { Locale } from '@/components/landing-copy';
+import { basePath, withBasePath } from '@/lib/base-path';
 
 export const siteName = 'Mink';
 export const repoUrl = 'https://github.com/yaroslavlky/mink';
 
-// Set NEXT_PUBLIC_SITE_URL to the production domain before deploying.
+// Set NEXT_PUBLIC_SITE_URL to the production origin before deploying.
+// NEXT_PUBLIC_BASE_PATH covers project GitHub Pages, e.g. /mink.
 export const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mink.dev');
+
+export function absoluteUrl(path = '/') {
+  return `${siteUrl.origin}${withBasePath(path)}`;
+}
 
 export const defaultDescription =
   'Mink finds the scripts, Make targets, and shell files already in your repository, then runs them from one terminal palette with typed parameters, pipelines, and services.';
@@ -42,7 +48,7 @@ export const ogLocale: Record<Locale, string> = {
 
 export function siteMetadata(title: string, description: string): Metadata {
   return {
-    metadataBase: siteUrl,
+    metadataBase: new URL(`${siteUrl.origin}${basePath}/`),
     title: {
       default: title,
       template: '%s · Mink',
@@ -70,7 +76,7 @@ export function siteMetadata(title: string, description: string): Metadata {
       siteName,
       title,
       description,
-      url: '/',
+      url: absoluteUrl('/'),
       images: [ogImage],
       locale: 'en_US',
     },

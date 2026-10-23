@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { generateStaticParamsFor, importPage } from 'nextra/pages';
 import { useMDXComponents as getMDXComponents } from '../../mdx-components';
-import { defaultDescription, ogImage, siteName } from '@/lib/seo';
+import { absoluteUrl, defaultDescription, ogImage, siteName } from '@/lib/seo';
 
 export const generateStaticParams = generateStaticParamsFor('mdxPath');
 
@@ -13,7 +13,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const title = typeof metadata.title === 'string' ? metadata.title : 'Mink documentation';
   const fullTitle = `${title} · Mink`;
   const description = metadata.description ?? defaultDescription;
-  const canonical = `/${mdxPath.join('/')}/`;
+  const canonical = absoluteUrl(`/${mdxPath.join('/')}/`);
 
   return {
     ...metadata,
