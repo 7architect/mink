@@ -1,5 +1,5 @@
 import { render } from 'ink';
-import type { Mink, ParameterValue, Settings } from '@mink/core';
+import type { Mink, ParameterValue, Settings } from '@yaroslavlky/mink-core';
 import { MinkApp } from './app.js';
 export { MinkApp } from './app.js';
 

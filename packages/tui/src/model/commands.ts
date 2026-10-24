@@ -10,7 +10,7 @@ import {
   type Pipeline,
   type PreparedCommand,
   type RunResult,
-} from '@mink/core';
+} from '@yaroslavlky/mink-core';
 export type Values = Record<string, ParameterValue>;
 export type CommandEntry = Command | Pipeline;
 export type CommandKind = 'task' | 'pipeline' | 'service';
@@ -51,6 +51,34 @@ export function commandPreview(prepared: PreparedCommand, entry: CommandEntry): 
   ].join(' ');
 }
 export function clipboardCommand(prepared: PreparedCommand): string {
+  if (
+    prepared.shell === 'powershell' ||
+    prepared.shell === 'pwsh' ||
+    ((!prepared.shell || prepared.shell === 'auto') && process.platform === 'win32')
+  ) {
+    const quote = (value: string) => shellQuote(value, 'powershell');
+    return [
+      '& {',
+      '$minkLocation = Get-Location',
+      '$minkEnvironment = @{}',
+      ...Object.keys(prepared.env).map(
+        (key) =>
+          `$minkEnvironment[${quote(key)}] = [Environment]::GetEnvironmentVariable(${quote(key)})`,
+      ),
+      'try {',
+      `Set-Location -LiteralPath ${quote(prepared.cwd ?? '.')}`,
+      ...Object.entries(prepared.env).map(([key, value]) => `$env:${key} = ${quote(value)}`),
+      commandLine(prepared, 'powershell'),
+      '} finally {',
+      'Set-Location -LiteralPath $minkLocation',
+      ...Object.keys(prepared.env).map(
+        (key) =>
+          `[Environment]::SetEnvironmentVariable(${quote(key)}, $minkEnvironment[${quote(key)}])`,
+      ),
+      '}',
+      '}',
+    ].join('\n');
+  }
   return [
     '(',
     `cd ${shellQuote(prepared.cwd ?? '.')} || exit`,

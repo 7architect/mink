@@ -8,7 +8,12 @@ import {
   type PreparedCommand,
 } from './commands/resolve.js';
 import { createCommandSearch, type CommandSearchResult } from './commands/search.js';
-import { planExecution, type ExecutionPlan } from './commands/plan.js';
+import {
+  planExecution,
+  planFailedBranches,
+  mergeRetryResult,
+  type ExecutionPlan,
+} from './commands/plan.js';
 import { Session } from './runtime/session.js';
 import type { RunEvent, RunOptions, RunResult, ServiceInfo } from './runtime/process.js';
 import {
@@ -75,12 +80,14 @@ export async function createMink(options: MinkOptions = {}): Promise<Mink> {
     },
     plan: (id, values = {}) => planExecution(loaded.config, loaded.directory, id, values),
     async run(id, values = {}, runOptions = {}) {
-      if (process.platform === 'win32')
-        throw new Error(
-          'This alpha supports Linux and macOS; Windows process semantics are not implemented',
-        );
-      const plan = planExecution(loaded.config, loaded.directory, id, values);
-      const result = await session.run(plan, runOptions);
+      const fullPlan = planExecution(loaded.config, loaded.directory, id, values);
+      const plan = runOptions.retryFailed
+        ? planFailedBranches(fullPlan, runOptions.retryFailed)
+        : fullPlan;
+      const executed = await session.run(plan, runOptions);
+      const result = runOptions.retryFailed
+        ? mergeRetryResult(runOptions.retryFailed, executed)
+        : executed;
       try {
         await store.update((state) => {
           state.history.unshift({
@@ -185,6 +192,14 @@ export { themes, languages, defaultSettings, detectLanguage } from './storage.js
 export type { Settings, ThemeName, Language } from './storage.js';
 export { validateConfig } from './config/load.js';
 export { initConfig } from './config/init.js';
+export { doctor, findExecutable } from './doctor.js';
+export type { DoctorCheck, DoctorReport } from './doctor.js';
+export { describePlan, formatPlan } from './commands/describe.js';
+export type { PlanDescription } from './commands/describe.js';
+export { planFailedBranches } from './commands/plan.js';
+export { watchTasks } from './runtime/watch.js';
+export type { WatchOptions } from './runtime/watch.js';
+export { createRunLog, redactSecrets } from './runtime/log.js';
 export {
   resolveValues,
   parseParameter,

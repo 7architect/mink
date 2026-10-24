@@ -2,6 +2,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_call:
 permissions:
   contents: read
 jobs:
@@ -9,8 +10,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            arch: x64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+          - os: windows-latest
+            arch: x64
+          - os: windows-11-arm
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+          - os: macos-latest
+            arch: arm64
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     env:
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
@@ -21,16 +35,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+          architecture: ${{ matrix.arch }}
           cache: pnpm
+      - name: Verify runtime architecture
+        run: node -e "if(process.arch !== '${{ matrix.arch }}') process.exit(1)"
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:packages
       - run: pnpm check
       - run: pnpm schema:check
+      - run: pnpm release:check
       - run: pnpm test:pack
       - run: pnpm docs:build
-        if: runner.os == 'Linux'
+        if: matrix.os == 'ubuntu-latest'
       - uses: actions/upload-artifact@v4
-        if: runner.os == 'Linux'
+        if: matrix.os == 'ubuntu-latest'
         with:
           name: mink-documentation
           path: apps/docs/out

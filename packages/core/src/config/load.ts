@@ -6,6 +6,8 @@ import schema from '../../schema/mink.schema.json' with { type: 'json' };
 import type { MinkConfiguration } from '../types/schema.js';
 import { validateReferences } from './validate.js';
 import { discover, findUp } from './discover.js';
+import { exists } from './discover.js';
+import { projectFiles } from './import.js';
 const validateShape = new Ajv({
   allErrors: true,
   allowUnionTypes: true,
@@ -29,7 +31,17 @@ export async function loadConfig(
   discovery = true,
 ): Promise<LoadedConfig> {
   const found = file ? resolve(cwd, file) : await findUp('mink.yml', cwd);
-  const packageFile = !found && discovery ? await findUp('package.json', cwd) : undefined;
+  let packageFile: string | undefined;
+  if (!found && discovery) {
+    outer: for (let directory = resolve(cwd); ; directory = dirname(directory)) {
+      for (const marker of projectFiles)
+        if (await exists(join(directory, marker))) {
+          packageFile = join(directory, marker);
+          break outer;
+        }
+      if (dirname(directory) === directory) break;
+    }
+  }
   const directory = found ? dirname(found) : packageFile ? dirname(packageFile) : resolve(cwd);
   let config: MinkConfiguration = { version: 1, commands: {} };
   if (found) {

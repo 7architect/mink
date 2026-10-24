@@ -31,7 +31,7 @@ export const ru = {
   'tab.services': 'СЕРВИСЫ',
   'tab.settings': 'НАСТРОЙКИ',
   'tab.hint': 'Tab / ⇧Tab',
-  'services.summary': '{count} сервисов · alpha 0.1',
+  'services.summary': '{count} сервисов',
   'terminal.tooSmall': 'Увеличьте терминал минимум до 48 × 20. Ctrl+C — выход.',
   'common.error': 'Ошибка: {message}',
   'common.moreSteps': 'ещё {count} шагов',
@@ -132,4 +132,6 @@ export const ru = {
   'help.toggle': 'показать или скрыть справку',
   'hint.copyOutput': 'копировать вывод',
   'notice.outputCopied': 'Вывод скопирован',
+  'log.filters': '/ поиск · ^L {stream} · ^N {owner} · ^U сброс · {query}',
+  'state.unhealthy': 'нездоров',
 } satisfies Record<MessageKey, string>;

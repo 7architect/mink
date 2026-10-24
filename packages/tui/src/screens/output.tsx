@@ -1,4 +1,6 @@
 import { Box, Text, useInput } from 'ink';
+import { useContext } from 'react';
+import { LogInputContext } from '../components/log-input.js';
 import type { SessionView } from '../hooks/use-session.js';
 import { planRows } from '../model/commands.js';
 import { LogView } from '../components/log-view.js';
@@ -13,18 +15,31 @@ export function OutputScreen({
   session,
   viewport,
   onRerun,
+  onRetryFailed,
   onCopy,
 }: {
   active: boolean;
   session: SessionView;
   viewport: Viewport;
   onRerun: () => void;
+  onRetryFailed: () => void;
   onCopy: () => void;
 }) {
   const run = session.invocation;
+  const { editingRef } = useContext(LogInputContext);
   useInput(
     (input, key) => {
+      if (editingRef.current) return;
       if (!key.ctrl && !key.meta && input === 'r' && run && !run.busy) onRerun();
+      if (
+        !key.ctrl &&
+        !key.meta &&
+        input === 'f' &&
+        run?.result &&
+        !run.busy &&
+        ['failed', 'cancelled'].includes(run.result.state)
+      )
+        onRetryFailed();
       if (!key.ctrl && !key.meta && input === 'y' && run) onCopy();
     },
     { isActive: active },

@@ -1,6 +1,6 @@
-# @mink/tui
+# @yaroslavlky/mink-tui
 
-Ink interface for the shared Mink engine. The package owns interaction and presentation; `@mink/core` owns validation, planning, process execution, and service lifetime.
+Ink interface for the shared Mink engine. The package owns interaction and presentation; `@yaroslavlky/mink-core` owns validation, planning, process execution, and service lifetime.
 
 ## Structure
 

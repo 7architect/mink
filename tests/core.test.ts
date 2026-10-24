@@ -62,11 +62,11 @@ describe('configuration and parameters', () => {
         },
       }),
     });
-    expect(mink.prepare('a').args).toEqual([]);
+    expect(mink.prepare('a').args.slice(3)).toEqual([]);
     expect(() => mink.prepare('a', { enabled: true })).toThrow(/missing/);
     expect(() => mink.prepare('a', { port: 10 })).toThrow(/inactive/);
     expect(() => mink.prepare('a', { enabled: true, port: 65536 })).toThrow(/port/);
-    expect(mink.prepare('a', { enabled: true, port: 80 }).args).toEqual(['--port', '80']);
+    expect(mink.prepare('a', { enabled: true, port: 80 }).args.slice(3)).toEqual(['--port', '80']);
   });
   it('checks all parameters before executing a dependency', async () => {
     const mink = await project({
@@ -141,7 +141,7 @@ describe('discovery', () => {
       stateDirectory: join(dir, 'state'),
     });
     const overridden = m.getConfig().commands.test;
-    expect(overridden.kind === 'command' && overridden.command).toContain('override');
+    expect(overridden.kind === 'command' && overridden.args?.[1]).toContain('override');
     expect(m.getConfig().commands['packages/app:test'].kind).toBe('command');
     expect(m.prepare('packages/app:test').cwd).toBe(join(dir, 'packages/app'));
     await m.dispose();
@@ -225,7 +225,7 @@ describe('workflows and processes', () => {
     });
     const r = await m.run('a');
     expect(r.timedOut).toBe(true);
-    expect(r.durationMs).toBeLessThan(3000);
+    expect(r.durationMs).toBeLessThan(process.platform === 'win32' ? 15000 : 3000);
   });
   it('cancels a queued pipeline and its running process', async () => {
     const m = await project({

@@ -1,0 +1,81 @@
+name: Release packages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: npm
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - name: Open or update the release PR
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: pnpm version:packages
+          title: 'chore: release packages'
+          commit: 'chore: release packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: pnpm build:packages
+        if: steps.changesets.outputs.hasChangesets == 'false'
+      - name: Publish verified tarballs using npm OIDC
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: pnpm release:publish
+      - name: Create the GitHub release
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs');
+            const result = JSON.parse(fs.readFileSync('work/release/result.json', 'utf8'));
+            const tag = `v${result.version}`;
+            try {
+              await github.rest.repos.getReleaseByTag({ ...context.repo, tag });
+              return;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            await github.rest.repos.createRelease({
+              ...context.repo,
+              tag_name: tag,
+              target_commitish: context.sha,
+              name: `Mink ${result.version}`,
+              prerelease: result.version.includes('-'),
+              generate_release_notes: true,
+              body: result.packages.map(pkg => `- ${pkg.name}@${pkg.version}`).join('\n')
+            });
+      - uses: actions/upload-artifact@v4
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        with:
+          name: npm-packages
+          path: work/release/
+          if-no-files-found: error

@@ -3,7 +3,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { glob } from 'tinyglobby';
 import { load } from 'js-yaml';
 import type { Command } from '../types/schema.js';
-import { shellQuote } from '../commands/resolve.js';
+import { importTasks } from './import.js';
 export async function exists(path: string): Promise<boolean> {
   try {
     await access(path);
@@ -66,9 +66,14 @@ export async function discover(directory: string): Promise<Record<string, Comman
     commands[id] = {
       kind: 'command',
       name: file,
-      command: `sh ${shellQuote(file)}`,
+      exec: 'sh',
+      args: [file],
       source: { shell_script: file },
     };
+  }
+  for (const [id, entry] of Object.entries(await importTasks(directory))) {
+    if (Object.hasOwn(commands, id)) throw new Error(`Discovery ID collision: ${id}`);
+    commands[id] = entry;
   }
   return commands;
   async function addPackage(
@@ -88,7 +93,8 @@ export async function discover(directory: string): Promise<Record<string, Comman
         kind: 'command',
         name: id,
         description: script,
-        command: `${manager} run ${shellQuote(name)}${manager === 'npm' ? ' --' : ''}`,
+        exec: manager,
+        args: ['run', name, ...(manager === 'npm' ? ['--'] : [])],
         cwd: relative(directory, dir) || '.',
         source: {
           package_script: { manifest: relative(directory, join(dir, 'package.json')), name },

@@ -1,4 +1,5 @@
 import type { Command, MinkConfiguration } from '../types/schema.js';
+import type { RunResult } from '../runtime/process.js';
 import {
   prepareEntry,
   resolveValues,
@@ -13,6 +14,8 @@ export interface ExecutionPlan {
   dependencies: ExecutionPlan[];
   steps: Record<string, { plan: ExecutionPlan; needs: string[] }>;
   maxParallel: number;
+  failFast?: boolean;
+  timeoutMs?: number;
 }
 export function planExecution(
   config: MinkConfiguration,
@@ -31,6 +34,9 @@ export function planExecution(
       dependencies: [],
       steps: Object.create(null),
       maxParallel: entry.kind === 'pipeline' ? (entry.max_parallel ?? Infinity) : Infinity,
+      ...(entry.kind === 'pipeline'
+        ? { failFast: entry.fail_fast, timeoutMs: entry.timeout_ms }
+        : {}),
     };
     if (entry.kind === 'command') {
       plan.entry = structuredClone(entry);
@@ -56,4 +62,55 @@ export function planExecution(
     return plan;
   }
   return build(id, id, supplied);
+}
+
+/** Replan failed branches and their prerequisites; never assume an old service still exists. */
+export function planFailedBranches(root: ExecutionPlan, previous: RunResult): ExecutionPlan {
+  if (previous.state === 'succeeded' || previous.state === 'ready')
+    throw new Error('The previous run has no failed branches');
+  const successful = (result: RunResult | undefined) =>
+    result?.state === 'succeeded' || result?.state === 'ready';
+  const prune = (plan: ExecutionPlan, result?: RunResult, force = false): ExecutionPlan => {
+    if (plan.entry) return structuredClone(plan);
+    if (!result?.steps && result && ['cancelled', 'skipped'].includes(result.state)) force = true;
+    const selected = new Map<string, boolean>();
+    const include = (name: string, required: boolean) => {
+      if (selected.has(name) && (selected.get(name) || !required)) return;
+      selected.set(name, required);
+      for (const need of plan.steps[name].needs) include(need, true);
+    };
+    for (const name of Object.keys(plan.steps)) {
+      if (!force && !Object.hasOwn(result?.steps ?? {}, name))
+        throw new Error('The previous result does not match the current execution graph');
+      if (force || !successful(result?.steps?.[name])) include(name, force);
+    }
+    return {
+      ...structuredClone(plan),
+      steps: Object.fromEntries(
+        [...selected].map(([name, required]) => [
+          name,
+          {
+            needs: [...plan.steps[name].needs],
+            plan: prune(plan.steps[name].plan, result?.steps?.[name], required),
+          },
+        ]),
+      ),
+    };
+  };
+  return prune(root, previous);
+}
+
+export function mergeRetryResult(previous: RunResult, current: RunResult): RunResult {
+  if (!previous.steps || !current.steps) return current;
+  return {
+    ...current,
+    steps: Object.fromEntries(
+      Object.entries(previous.steps).map(([name, result]) => [
+        name,
+        Object.hasOwn(current.steps!, name)
+          ? mergeRetryResult(result, current.steps![name])
+          : { ...result, reused: true },
+      ]),
+    ),
+  };
 }

@@ -4,7 +4,7 @@ title: Discovery and workspaces
 
 # Reuse project scripts
 
-Discovery imports root `package.json` scripts, basic npm/pnpm/yarn workspace scripts, and `scripts/*.sh` in the project directory. It reads definitions without executing them. Use `--no-discovery` for a configuration-only session.
+Discovery imports root `package.json` scripts, basic npm/pnpm/yarn workspace scripts, `scripts/*.sh`, Makefile, Taskfile and Compose definitions in the project directory. It reads definitions without executing them. Use `--no-discovery` for a configuration-only session.
 
 | Source              | Example ID          | Execution cwd  |
 | ------------------- | ------------------- | -------------- |
@@ -18,8 +18,8 @@ Workspace patterns come from `pnpm-workspace.yaml` (`packages`) or `package.json
 
 ## Finding the root
 
-An explicit `--config` path wins. Otherwise Mink looks upward for `mink.yml`. Without YAML it looks upward for the nearest `package.json`; if neither exists, it can discover shell scripts in the current directory. In a monorepo, keep a root `mink.yml` to establish a stable shared root when opening Mink from nested packages.
+An explicit `--config` path wins. Otherwise Mink looks upward for `mink.yml`. Without YAML it looks upward for the nearest package.json, Makefile, Taskfile or Compose file; if neither exists, it can discover shell scripts in the current directory. In a monorepo, keep a root `mink.yml` to establish a stable shared root when opening Mink from nested packages.
 
 Malformed YAML is an error. Mink never silently falls back to discovered commands after finding a broken configuration. YAML commands replace discovered commands by ID; discovery metadata remains on entries that were not overridden.
 
-Imports from Makefiles, Taskfiles, and Docker Compose are planned separately. You can already invoke those tools with an explicit trusted `command` entry.
+Make targets use `make:<target>`, Taskfile tasks use `task:<name>`, and Compose operations use `compose:<operation>` or `compose:up:<service>`. Discovery never evaluates Make expressions or starts Docker. Dynamic Make targets are not expanded and internal Taskfile tasks are hidden. Compose up uses detached mode; Docker owns those containers, and `compose:down` stops them. Missing tools are reported by `mink doctor`.

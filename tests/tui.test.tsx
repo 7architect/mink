@@ -9,6 +9,34 @@ import { safeText } from '../packages/tui/src/actions.js';
 import { project, command } from './helpers.js';
 afterEach(cleanup);
 
+it('searches logs without firing rerun shortcuts while editing the query', async () => {
+  const m = await project({
+    logs: command('process.stdout.write("ordinary line\\nERROR: detail\\n")'),
+  });
+  const run = vi.spyOn(m, 'run');
+  const ui = render(<MinkApp mink={m} overrides={{ language: 'en' }} />);
+  await expect.poll(ui.lastFrame).toContain('COMMANDS');
+  ui.stdin.write('\r');
+  await expect.poll(ui.lastFrame).toContain('REVIEW BEFORE EXECUTION');
+  ui.stdin.write('\r');
+  await expect.poll(ui.lastFrame).toContain('ERROR: detail');
+  await expect.poll(ui.lastFrame).toContain('succeeded');
+  ui.stdin.write('/');
+  await expect.poll(ui.lastFrame).not.toContain('/ search');
+  ui.stdin.write('r');
+  await expect.poll(ui.lastFrame).toContain('/ r');
+  ui.stdin.write('ror');
+  await expect.poll(ui.lastFrame).toContain('/ rror');
+  ui.stdin.write('\r');
+  await expect.poll(ui.lastFrame).not.toContain('ordinary line');
+  expect(ui.lastFrame()).toContain('ERROR: detail');
+  expect(run).toHaveBeenCalledTimes(1);
+  ui.stdin.write('/');
+  await expect.poll(ui.lastFrame).toContain('/ rror');
+  ui.stdin.write('\u001b');
+  await expect.poll(ui.lastFrame).toContain('PROCESS OUTPUT');
+});
+
 it('filters the palette, edits parameters, previews and runs with output', async () => {
   const m = await project({
     greet: command('process.stdout.write("Hello "+process.env.NAME)', {

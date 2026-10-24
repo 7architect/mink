@@ -4,7 +4,17 @@ title: Quick start
 
 # Run your first command
 
-Use Linux or macOS, Node.js 24+, and pnpm 11.28.0. From the repository checkout:
+Use Windows, Linux or macOS with Node.js 24+. Windows requires Windows PowerShell.
+After the first npm registry release, install the CLI globally:
+
+```sh
+npm i -g @yaroslavlky/mink
+# or: pnpm add -g @yaroslavlky/mink
+mink doctor
+mink
+```
+
+Before the first publication, or to develop Mink, use pnpm 11.28.0 from a checkout:
 
 ```sh
 corepack enable
@@ -48,7 +58,8 @@ commands:
   greet:
     kind: command
     name: Greet a teammate
-    command: node -e 'console.log("Hello, " + process.env.PERSON)'
+    exec: node
+    args: ['-e', "console.log('Hello, ' + process.env.PERSON)"]
     params:
       person:
         type: string

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "build:packages": "pnpm --filter @mink/core --filter @mink/tui --filter mink build",
+    "build:packages": "pnpm --filter @yaroslavlky/mink-core --filter @yaroslavlky/mink-tui --filter @yaroslavlky/mink build",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -20,9 +20,14 @@
     "docs:build": "pnpm --filter @mink/docs build",
     "logo:assets": "python3 scripts/generate-logo-assets.py",
     "og:generate": "node scripts/generate-og.mjs",
-    "schema:generate": "pnpm --filter @mink/core generate-types",
-    "schema:check": "pnpm schema:generate && git diff --exit-code -- packages/core/src/types/schema.d.ts",
-    "test:pack": "node scripts/pack-smoke.mjs"
+    "schema:generate": "pnpm --filter @yaroslavlky/mink-core generate-types",
+    "schema:check": "node scripts/schema-check.mjs",
+    "test:pack": "node scripts/pack-smoke.mjs",
+    "changeset": "changeset",
+    "version:packages": "changeset version && pnpm install --lockfile-only",
+    "release:pack": "node scripts/release.mjs pack",
+    "release:publish": "node scripts/release.mjs publish",
+    "release:check": "node scripts/release.mjs check"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
@@ -37,7 +42,10 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.2.0",
     "@types/node": "^24.12.2",
-    "react": "19.3.0",
-    "ink": "8.0.0"
+    "react": "catalog:",
+    "ink": "catalog:",
+    "@changesets/cli": "^2.29.8",
+    "verdaccio": "^6.2.0",
+    "cross-spawn": "^7.0.6"
   }
 }

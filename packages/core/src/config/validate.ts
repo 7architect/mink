@@ -34,6 +34,9 @@ export function validateReferences(config: MinkConfiguration): void {
         assertParameterValue(`${id}.presets.${preset}.${name}`, p, value);
       }
     if (entry.kind === 'command') {
+      if (entry.exec && entry.shell) throw new Error(`${id}: exec does not use a shell`);
+      if ([entry.command, entry.exec, ...(entry.args ?? [])].some((value) => value?.includes('\0')))
+        throw new Error(`${id}: command and arguments cannot contain NUL`);
       for (const dep of entry.depends_on ?? [])
         if (!exists(dep) || entries[dep].kind !== 'command' || entries[dep].run?.mode === 'service')
           throw new Error(
@@ -45,6 +48,11 @@ export function validateReferences(config: MinkConfiguration): void {
       if (run?.mode === 'service' && run.timeout_ms)
         throw new Error(`${id}: service requires startup_timeout_ms, not timeout_ms`);
       if (run?.ready?.type === 'http') new URL(run.ready.url!);
+      if (run?.health?.type === 'http') new URL(run.health.url!);
+      if (run?.mode !== 'service' && (run?.health || run?.restart))
+        throw new Error(`${id}: health and restart require service mode`);
+      if (run?.mode === 'service' && run.retry)
+        throw new Error(`${id}: use restart for services, retry for tasks`);
     } else {
       for (const [stepId, step] of Object.entries(entry.steps)) {
         if (!exists(step.uses)) throw new Error(`${id}.${stepId}: unknown command ${step.uses}`);

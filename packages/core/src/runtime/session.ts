@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { ExecutionPlan } from '../commands/plan.js';
 import {
   startProcess,
@@ -42,7 +43,7 @@ export class Session {
     if (this.disposed) throw new Error('Mink session is disposed');
     const serviceIds = new Set(
       this.services()
-        .filter((p) => ['ready', 'starting', 'stopping'].includes(p.state))
+        .filter((p) => ['ready', 'unhealthy', 'starting', 'stopping'].includes(p.state))
         .map((p) => p.id),
     );
     for (const id of this.reservedServices) serviceIds.add(id);
@@ -68,6 +69,8 @@ export class Session {
       : controller.signal;
     const pool = new Slots(root.maxParallel),
       dependencyRuns = new Map<string, Promise<RunResult>>();
+    const dependencyController = new AbortController();
+    let dependencySignal = AbortSignal.any([signal, dependencyController.signal]);
     const notify = (event: RunEvent) => {
       this.emit(event);
       try {
@@ -76,10 +79,21 @@ export class Session {
         /* Isolate observer errors. */
       }
     };
-    const effective = { ...options, signal };
-    const execute = async (plan: ExecutionPlan): Promise<RunResult> => {
-      if (signal.aborted) return outcome('cancelled');
+    const execute = async (plan: ExecutionPlan, scope = signal): Promise<RunResult> => {
+      if (scope.aborted) return outcome('cancelled');
       if (!plan.entry) {
+        const branch = new AbortController();
+        const branchSignal = AbortSignal.any([scope, branch.signal]);
+        if (plan === root)
+          dependencySignal = AbortSignal.any([branchSignal, dependencyController.signal]);
+        let failed = false,
+          timedOut = false;
+        const deadline = plan.timeoutMs
+          ? setTimeout(() => {
+              timedOut = true;
+              branch.abort();
+            }, plan.timeoutMs)
+          : undefined;
         const runs = new Map<string, Promise<RunResult>>();
         const step = (id: string): Promise<RunResult> => {
           if (!runs.has(id))
@@ -87,60 +101,111 @@ export class Session {
               id,
               (async () => {
                 const needs = await Promise.all(plan.steps[id].needs.map(step));
-                if (signal.aborted) return outcome('cancelled');
+                if (branchSignal.aborted) return outcome('cancelled');
                 if (needs.some((r) => !successful(r))) return outcome('skipped');
-                return execute(plan.steps[id].plan);
+                const result = await execute(plan.steps[id].plan, branchSignal);
+                if (result.state === 'failed' && plan.failFast) {
+                  failed = true;
+                  branch.abort();
+                }
+                return result;
               })(),
             );
           return runs.get(id)!;
         };
         const begin = Date.now(),
           names = Object.keys(plan.steps),
-          results = await Promise.all(names.map(step));
+          results = await Promise.all(names.map(step)).finally(() => {
+            if (deadline) clearTimeout(deadline);
+          });
         const success = results.every(successful);
         return {
           exitCode: success ? 0 : 1,
           signal: null,
           durationMs: Date.now() - begin,
-          timedOut: results.some((r) => r.timedOut),
-          state: signal.aborted ? 'cancelled' : success ? 'succeeded' : 'failed',
+          timedOut: timedOut || results.some((r) => r.timedOut),
+          state: scope.aborted
+            ? 'cancelled'
+            : !failed && !timedOut && success
+              ? 'succeeded'
+              : 'failed',
           steps: Object.fromEntries(names.map((name, i) => [name, results[i]])),
         };
       }
       for (const dep of plan.dependencies) {
-        if (!dependencyRuns.has(dep.key)) dependencyRuns.set(dep.key, execute(dep));
-        const result = await dependencyRuns.get(dep.key)!;
+        if (!dependencyRuns.has(dep.key))
+          dependencyRuns.set(dep.key, execute(dep, dependencySignal));
+        const result = await untilCancelled(dependencyRuns.get(dep.key)!, scope);
         if (!successful(result))
-          return { ...result, state: signal.aborted ? 'cancelled' : 'failed' };
+          return { ...result, state: scope.aborted ? 'cancelled' : 'failed' };
       }
-      if (!(await pool.acquire(signal))) return outcome('cancelled');
-      try {
-        if (signal.aborted) return outcome('cancelled');
-        const instance = `${runId}:${plan.key}`;
-        const handle = startProcess(plan, runId, instance, effective, notify);
-        if (plan.entry.run?.mode === 'service') {
-          for (const [key, old] of this.processes) {
-            if (old.id === plan.id && ['stopped', 'failed'].includes(old.state))
-              this.processes.delete(key);
+      const retry = plan.entry.run?.retry;
+      const begin = Date.now();
+      for (let attempt = 1; attempt <= (retry?.attempts ?? 1); attempt++) {
+        if (!(await pool.acquire(scope))) return outcome('cancelled');
+        let result: RunResult;
+        try {
+          if (scope.aborted) return outcome('cancelled');
+          const instance = `${runId}:${plan.key}`;
+          const handle = startProcess(
+            plan,
+            runId,
+            instance,
+            { ...options, signal: scope },
+            notify,
+            async (restartSignal) => {
+              if (!(await pool.acquire(restartSignal)))
+                throw new Error('Service restart cancelled');
+              return () => pool.release();
+            },
+          );
+          if (plan.entry.run?.mode === 'service') {
+            for (const [key, old] of this.processes) {
+              if (old.id === plan.id && ['stopped', 'failed'].includes(old.state))
+                this.processes.delete(key);
+            }
           }
+          this.processes.set(instance, handle);
+          void handle.completion.then(() => {
+            if (plan.entry?.run?.mode !== 'service') this.processes.delete(instance);
+          });
+          result = await handle.ready;
+        } finally {
+          pool.release();
         }
-        this.processes.set(instance, handle);
-        void handle.completion.then(() => {
-          if (plan.entry?.run?.mode !== 'service') this.processes.delete(instance);
-        });
-        return await handle.ready;
-      } finally {
-        pool.release();
+        if (result.state !== 'failed' || attempt === (retry?.attempts ?? 1))
+          return {
+            ...result,
+            durationMs: Date.now() - begin,
+            ...(retry ? { attempts: attempt } : {}),
+          };
+        try {
+          await delay(
+            Math.min(60000, (retry?.delay_ms ?? 100) * (retry?.backoff ?? 2) ** (attempt - 1)),
+            undefined,
+            { signal: scope },
+          );
+        } catch {
+          return outcome('cancelled');
+        }
       }
+      return outcome('cancelled');
     };
     try {
       const result = await execute(root);
+      // A nested deadline can stop waiting on a shared prerequisite. Keep it
+      // available to other branches, then clean up any unused work before return.
+      dependencyController.abort();
+      await Promise.all(dependencyRuns.values());
       return { ...result, durationMs: Date.now() - started };
     } finally {
+      dependencyController.abort();
       // Services retain their controller until session disposal.
       for (const id of reservations) this.reservedServices.delete(id);
       const live = this.services().filter(
-        (p) => p.instance.startsWith(runId) && ['ready', 'starting', 'stopping'].includes(p.state),
+        (p) =>
+          p.instance.startsWith(runId) &&
+          ['ready', 'unhealthy', 'starting', 'stopping'].includes(p.state),
       );
       if (!live.length) this.controllers.delete(controller);
       else
@@ -171,6 +236,24 @@ export class Session {
     this.controllers.clear();
     this.listeners.clear();
   }
+}
+function untilCancelled(result: Promise<RunResult>, signal: AbortSignal): Promise<RunResult> {
+  if (signal.aborted) return Promise.resolve(outcome('cancelled'));
+  return new Promise((resolve, reject) => {
+    const abort = () => resolve(outcome('cancelled'));
+    signal.addEventListener('abort', abort, { once: true });
+    void result.then(
+      (value) => {
+        signal.removeEventListener('abort', abort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener('abort', abort);
+        reject(error);
+      },
+    );
+    if (signal.aborted) abort();
+  });
 }
 class Slots {
   private active = 0;

@@ -8,7 +8,20 @@
 Находите команды, заполняйте параметры, запускайте пайплайны и управляйте локальными сервисами из одной палитры.
 </div>
 
-Mink 0.1 — первая рабочая alpha для **Linux/macOS и Node.js 24+**. Пакеты пока не опубликованы: запуск доступен из собранного репозитория. Лицензия MIT.
+Mink — терминальный пульт для **Windows, Linux и macOS, Node.js 24+**. На Windows требуется Windows PowerShell. Лицензия MIT. Ветка готовит первый релиз `@yaroslavlky/mink`; до публикации используйте сборку из репозитория.
+
+## Установка из npm
+
+После первой публикации пакетов:
+
+```sh
+npm i -g @yaroslavlky/mink
+# или: pnpm add -g @yaroslavlky/mink
+mink doctor
+mink
+```
+
+Команда остаётся `mink`. Имя пакета без scope занято другим проектом. [Настройка релизов и npm Trusted Publishing](docs/releasing.md).
 
 ## Быстрый старт
 
@@ -31,13 +44,13 @@ node packages/cli/dist/index.js run greet --param person=Ada --config examples/d
 
 ## Возможности
 
-- CLI: `ui`, `list`, `check`, `run`, `init`, `preset`, `favorite`.
+- CLI: `ui`, `list`, `check`, `run`, `init`, `preset`, `favorite`, `doctor`, `plan`, `watch`.
 - Палитра с нечётким поиском, избранным и историей; формы, предпросмотр, копирование команды и foreground stdin.
-- YAML + JSON Schema и проверка ссылок/циклов до выполнения; импорт package scripts, базовых npm/pnpm/yarn workspaces и `scripts/*.sh`.
+- YAML + JSON Schema и проверка ссылок/циклов до выполнения; импорт package scripts, базовых npm/pnpm/yarn workspaces, `scripts/*.sh`, Makefile, Taskfile и Compose.
 - Параметры `string`, `number`, `boolean`, `select`, `port`, `path`, `secret`, defaults, условия и пресеты.
 - DAG-пайплайны, вложенные пайплайны, типизированные `with`, однократные prerequisites и общий лимит процессов для корневого запуска.
-- Потоковый stdout/stderr, exit code, длительность, timeout и cancellation с очисткой принадлежащих сессии POSIX process groups.
-- Сервисы с process/TCP/HTTP readiness; просмотр вывода, stop/restart/kill и открытие HTTP health URL.
+- Потоковый stdout/stderr, exit code, длительность, timeout и cancellation с очисткой POSIX process groups или Windows Job Objects.
+- Сервисы с process/TCP/HTTP readiness, непрерывным health-check и ограниченным restart; просмотр вывода, stop/restart/kill и открытие HTTP health URL.
 - Локальное состояние с блокировкой и атомарной записью; параметры и вывод не сохраняются в истории.
 
 Tab переключает вкладки Commands → Output → Services → Settings, Shift+Tab — обратно. В настройках (Ctrl+G) выбираются темы и язык интерфейса: English, Русский, Deutsch, Français, 中文. Поиск и незавершённый ввод сохраняются. В палитре: ↑↓ выбрать, Enter настроить/запустить, Ctrl+F избранное, Ctrl+S сервисы, Esc назад, Ctrl+C отменить/выйти. В форме: Ctrl+B — предыдущий параметр. В preview: `e` изменить, `p` загрузить preset, `s` сохранить, `c` копировать; Shift+Enter — запустить с stdin вне Ink.
@@ -52,7 +65,8 @@ commands:
   greet:
     kind: command
     name: Greet the team
-    command: node -e 'console.log("Hello, " + process.env.PERSON)'
+    exec: node
+    args: ['-e', "console.log('Hello, ' + process.env.PERSON)"]
     params:
       person: { type: string, env: PERSON, default: team }
   check:
@@ -63,7 +77,7 @@ commands:
       greeting: { uses: greet, with: { person: Mink } }
 ```
 
-YAML перекрывает обнаруженные команды с тем же ID. `--no-discovery` отключает импорт. Параметры передаются через env или отдельно экранированные аргументы; `command` остаётся доверенным shell-кодом. Секреты вводятся в маскированной форме или через `--secret-env token=ENV_NAME`, исключены из presets/clipboard/history. Вывод дочерней программы может содержать секреты и не редактируется автоматически.
+YAML перекрывает обнаруженные команды с тем же ID. `--no-discovery` отключает импорт. Переносимые команды задавайте через `exec` и `args`: параметры передаются напрямую, без shell. `command` остаётся доверенным shell-кодом и использует `/bin/sh` на Linux/macOS или Windows PowerShell на Windows; `shell` можно выбрать явно. Секреты вводятся в маскированной форме или через `--secret-env token=ENV_NAME`, исключены из presets/clipboard/history. Вывод дочерней программы может содержать секреты и не редактируется автоматически.
 
 ## Документация и разработка
 
@@ -93,8 +107,12 @@ pnpm schema:check
 pnpm test:pack       # установка tarballs в отдельный временный проект
 ```
 
-[Содержимое документации](apps/docs/content) включает руководство, CLI, конфигурацию, параметры, discovery, пайплайны, сервисы, состояние, безопасность и [архитектуру](apps/docs/content/architecture.mdx). Главная страница сайта — отдельный лендинг с локализованными версиями `/ru/`, `/de/`, `/fr/` и `/zh/`, документация начинается с `/overview/`. Сайт можно разместить на любом static hosting; автоматическая публикация не включена. Перед публикацией задайте `NEXT_PUBLIC_SITE_URL`, чтобы canonical и Open Graph ссылались на реальный домен. `og:generate` запускайте после `docs:build`: скрипт снимает карточку из собранного `og-card` через Chromium с аппаратным WebGL.
+[Содержимое документации](apps/docs/content) включает руководство, CLI, конфигурацию, параметры, discovery, пайплайны, сервисы, состояние, безопасность и [архитектуру](apps/docs/content/architecture.mdx). Главная страница сайта — отдельный лендинг с локализованными версиями `/ru/`, `/de/`, `/fr/` и `/zh/`, документация начинается с `/overview/`. Сайт автоматически публикуется в GitHub Pages при обновлении `main`. Перед публикацией задайте `NEXT_PUBLIC_SITE_URL`, чтобы canonical и Open Graph ссылались на реальный домен. `og:generate` запускайте после `docs:build`: скрипт снимает карточку из собранного `og-card` через Chromium с аппаратным WebGL.
 
 Ядро в `packages/core` не зависит от React/Ink. CLI и TUI используют общий preflight, планировщик и runtime. Подробности API — в [README ядра](packages/core/README.md).
 
-Ограничения alpha: Windows, PTY-эмуляция, сохранение сервисов между сессиями, Make/Taskfile/Compose imports, плагины, inheritance и remote/Git integrations отложены. Readiness проверяет запуск, а не непрерывное здоровье сервиса; лимит `max_parallel` корня покрывает задачи и запуск сервисов, готовые сервисы продолжают работать за пределами этого бюджета.
+Дополнительно: `mink plan verify --json` и `mink run verify --dry-run` показывают план без выполнения и скрывают секреты; `mink doctor` проверяет окружение, конфигурацию, инструменты, порты и хранилище. `mink watch test --path src --mode restart` перезапускает задачу после изменений и ждёт завершения отменённого запуска. В логах: `/` поиск, Ctrl+L поток, Ctrl+N процесс, Ctrl+U сброс. `mink run verify --log-file run.jsonl` сохраняет новый JSONL-файл и маскирует известные секреты, включая разделённые между чанками. В Output клавиша `f` повторяет неуспешные ветки с prerequisites.
+
+Для задач доступны `run.retry`, для сервисов — `run.health` и `run.restart`, для пайплайнов — `fail_fast` и общий `timeout_ms`. Примеры и семантика: [конфигурация](docs/configuration.md).
+
+Ограничения alpha: PTY-эмуляция, сохранение сервисов между сессиями, плагины, inheritance и remote/Git integrations отложены. `ready` проверяет запуск; необязательный `health` продолжает проверки после него; лимит `max_parallel` корня покрывает задачи и запуск сервисов, готовые сервисы продолжают работать за пределами этого бюджета.

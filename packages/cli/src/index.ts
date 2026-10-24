@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 import { defineCommand, defineCittyPlugin, runMain, type ArgsDef } from 'citty';
 import { parseArgs } from 'node:util';
+import manifest from '../package.json' with { type: 'json' };
 import {
   createMink,
+  describePlan,
+  doctor,
+  formatPlan,
+  watchTasks,
+  createRunLog,
   initConfig,
   languages,
   parseParameter,
@@ -13,7 +19,7 @@ import {
   type RunResult,
   type Settings,
   type ThemeName,
-} from '@mink/core';
+} from '@yaroslavlky/mink-core';
 const strictArguments = defineCittyPlugin({
   name: 'strict-arguments',
   async setup({ cmd, rawArgs }) {
@@ -26,7 +32,7 @@ const strictArguments = defineCittyPlugin({
           name,
           {
             type: def.type === 'boolean' ? ('boolean' as const) : ('string' as const),
-            multiple: name === 'param' || name === 'secret-env',
+            multiple: ['param', 'secret-env', 'path', 'ignore'].includes(name),
           },
         ]),
     );
@@ -115,6 +121,143 @@ export function exitCode(result: RunResult): number {
       : (result.exitCode ?? 1);
 }
 const commands = {
+  watch: defineCommand({
+    plugins: [strictArguments],
+    meta: { description: 'Rerun a task when project files change' },
+    args: {
+      ...common,
+      task,
+      param,
+      preset: { type: 'string', description: 'Saved preset name' },
+      'secret-env': {
+        type: 'string',
+        description: 'Read secret parameter from an environment variable',
+      },
+      path: {
+        type: 'string',
+        description: 'Watch a file or directory (repeatable; defaults to project root)',
+      },
+      ignore: { type: 'string', description: 'Ignore a file or directory (repeatable)' },
+      debounce: { type: 'string', default: '150', description: 'Debounce in milliseconds' },
+      mode: {
+        type: 'string',
+        default: 'restart',
+        description: 'restart cancels the previous run; queue waits for it',
+      },
+    },
+    async run({ args, rawArgs }) {
+      if (!['restart', 'queue'].includes(args.mode))
+        throw new Error('Watch mode must be restart or queue');
+      const repeated = (name: string) =>
+        parseArgs({
+          args: rawArgs,
+          strict: false,
+          allowPositionals: true,
+          options: { [name]: { type: 'string', multiple: true } },
+        }).values[name] as string[] | undefined;
+      const initial = await createMink({ configFile: args.config, discover: args.discovery });
+      let values: Record<string, ParameterValue>;
+      try {
+        values = {
+          ...(args.preset ? await initial.preset(args.task, args.preset) : {}),
+          ...parameters(initial, args.task, rawArgs),
+        };
+        initial.plan(args.task, values);
+      } finally {
+        await initial.dispose();
+      }
+      const controller = new AbortController();
+      const interrupt = () => {
+        process.exitCode = 130;
+        controller.abort();
+      };
+      const terminate = () => {
+        process.exitCode = 143;
+        controller.abort();
+      };
+      process.on('SIGINT', interrupt);
+      process.on('SIGTERM', terminate);
+      try {
+        await watchTasks({
+          directory: initial.directory,
+          paths: repeated('path'),
+          ignore: repeated('ignore'),
+          debounceMs: Number(args.debounce),
+          mode: args.mode as 'restart' | 'queue',
+          signal: controller.signal,
+          onReady: () =>
+            process.stderr.write(`Watching ${initial.directory}; Ctrl+C stops this session.\n`),
+          onError: (error) => process.stderr.write(`${String(error)}\n`),
+          run: async (signal) => {
+            await session(args, async (m) => {
+              const result = await m.run(args.task, values, {
+                signal,
+                onEvent: (event) => {
+                  if (event.chunk)
+                    (event.type === 'stderr' ? process.stderr : process.stdout).write(event.chunk);
+                },
+              });
+              process.stderr.write(`${args.task}: ${result.state} (${result.durationMs} ms)\n`);
+              const services = m.services();
+              if (services.length && (result.state === 'succeeded' || result.state === 'ready'))
+                await Promise.all(services.map((service) => service.completion));
+            });
+          },
+        });
+      } finally {
+        process.off('SIGINT', interrupt);
+        process.off('SIGTERM', terminate);
+      }
+    },
+  }),
+  doctor: defineCommand({
+    plugins: [strictArguments],
+    meta: {
+      description: 'Diagnose configuration, tools, local ports and storage without running tasks',
+    },
+    args: { ...common, json: { type: 'boolean', description: 'JSON output' } },
+    async run({ args }) {
+      const report = await doctor({ configFile: args.config, discover: args.discovery });
+      console.log(
+        args.json
+          ? JSON.stringify(report, null, 2)
+          : report.checks
+              .map(
+                (check) =>
+                  `${check.status.toUpperCase()} ${check.message}${check.status !== 'pass' && check.hint ? `\n  ${check.hint}` : ''}`,
+              )
+              .join('\n'),
+      );
+      process.exitCode = report.ok ? 0 : 1;
+    },
+  }),
+  plan: defineCommand({
+    plugins: [strictArguments],
+    meta: { description: 'Inspect the resolved execution graph without running commands' },
+    args: {
+      ...common,
+      task,
+      param,
+      preset: { type: 'string', description: 'Saved preset name' },
+      'secret-env': {
+        type: 'string',
+        description: 'Read secret parameter from an environment variable',
+      },
+      json: { type: 'boolean', description: 'JSON output (secrets are masked)' },
+    },
+    async run({ args, rawArgs }) {
+      await session(args, async (m) => {
+        const values = {
+          ...(args.preset ? await m.preset(args.task, args.preset) : {}),
+          ...parameters(m, args.task, rawArgs),
+        };
+        const plan = describePlan(m.plan(args.task, values));
+        console.log(
+          args.json ? JSON.stringify({ formatVersion: 1, plan }, null, 2) : formatPlan(plan),
+        );
+      });
+    },
+  }),
   run: defineCommand({
     plugins: [strictArguments],
     meta: { description: 'Run a command or pipeline' },
@@ -123,6 +266,9 @@ const commands = {
       task,
       param,
       preset: { type: 'string', description: 'Saved preset name' },
+      'dry-run': { type: 'boolean', description: 'Print the execution plan without running tasks' },
+      'log-file': { type: 'string', description: 'Write redacted JSONL output to a new file' },
+      json: { type: 'boolean', description: 'JSON output with --dry-run' },
       'secret-env': {
         type: 'string',
         description: 'Read secret parameter from an environment variable',
@@ -135,6 +281,18 @@ const commands = {
             ...parameters(m, args.task, rawArgs),
           },
           controller = new AbortController();
+        if (args.json && !args['dry-run'])
+          throw new Error('Use --json with --dry-run, or mink plan <task> --json');
+        if (args['dry-run']) {
+          const plan = describePlan(m.plan(args.task, values));
+          console.log(
+            args.json ? JSON.stringify({ formatVersion: 1, plan }, null, 2) : formatPlan(plan),
+          );
+          return;
+        }
+        const log = args['log-file']
+          ? createRunLog(args['log-file'], m.plan(args.task, values))
+          : undefined;
         let interrupted: NodeJS.Signals | undefined;
         const sigint = () => {
             interrupted = 'SIGINT';
@@ -151,6 +309,7 @@ const commands = {
             signal: controller.signal,
             stdin: 'inherit',
             onEvent: (e) => {
+              log?.write(e);
               if (e.chunk) (e.type === 'stderr' ? process.stderr : process.stdout).write(e.chunk);
             },
           });
@@ -170,6 +329,7 @@ const commands = {
         } finally {
           process.off('SIGINT', sigint);
           process.off('SIGTERM', sigterm);
+          log?.close();
         }
       });
     },
@@ -272,13 +432,13 @@ const ui = defineCommand({
       overrides.language = args.lang as Language;
     }
     await session(args, async (m) => {
-      const { openTui } = await import('@mink/tui');
+      const { openTui } = await import('@yaroslavlky/mink-tui');
       await openTui(m, overrides);
     });
   },
 });
 const main = defineCommand({
-  meta: { name: 'mink', version: '0.1.0', description: 'Your repository control center' },
+  meta: { name: 'mink', version: manifest.version, description: 'Your repository control center' },
   args: common,
   subCommands: { ...commands, ui },
   default: 'ui',

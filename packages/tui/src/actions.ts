@@ -2,11 +2,22 @@ import { spawn } from 'node:child_process';
 import { stripVTControlCharacters } from 'node:util';
 export async function copyText(text: string): Promise<void> {
   const [exe, args] =
-    process.platform === 'darwin'
-      ? ['pbcopy', []]
-      : process.env.WAYLAND_DISPLAY
-        ? ['wl-copy', []]
-        : ['xclip', ['-selection', 'clipboard']];
+    process.platform === 'win32'
+      ? [
+          'powershell.exe',
+          [
+            '-NoLogo',
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            '[Console]::InputEncoding = [Text.UTF8Encoding]::new(); Set-Clipboard -Value ([Console]::In.ReadToEnd())',
+          ],
+        ]
+      : process.platform === 'darwin'
+        ? ['pbcopy', []]
+        : process.env.WAYLAND_DISPLAY
+          ? ['wl-copy', []]
+          : ['xclip', ['-selection', 'clipboard']];
   await new Promise<void>((resolve, reject) => {
     const child = spawn(exe, args, { stdio: ['pipe', 'ignore', 'pipe'] });
     let error = '';
@@ -28,9 +39,18 @@ export async function openUrl(value: string): Promise<void> {
   if (!['http:', 'https:'].includes(url.protocol))
     throw new Error('Only http/https URLs may be opened');
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(process.platform === 'darwin' ? 'open' : 'xdg-open', [url.href], {
-      stdio: 'ignore',
-    });
+    const child = spawn(
+      process.platform === 'win32'
+        ? 'rundll32.exe'
+        : process.platform === 'darwin'
+          ? 'open'
+          : 'xdg-open',
+      process.platform === 'win32' ? ['url.dll,FileProtocolHandler', url.href] : [url.href],
+      {
+        stdio: 'ignore',
+        windowsHide: true,
+      },
+    );
     child.once('error', reject);
     child.once('close', (code) =>
       code === 0 ? resolve() : reject(new Error('Could not open browser')),

@@ -1,4 +1,4 @@
-import type { ThemeName } from '@mink/core';
+import type { ThemeName } from '@yaroslavlky/mink-core';
 
 export interface Palette {
   accent: string;
@@ -133,7 +133,7 @@ export function applyTheme(name: ThemeName): void {
 export function statusColor(state: string): string {
   if (['succeeded', 'ready'].includes(state)) return colors.success;
   if (['failed', 'error'].includes(state)) return colors.danger;
-  if (['cancelled', 'stopping'].includes(state)) return colors.warning;
+  if (['cancelled', 'stopping', 'unhealthy'].includes(state)) return colors.warning;
   if (['running', 'starting'].includes(state)) return colors.accent;
   return colors.muted;
 }

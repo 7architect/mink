@@ -29,14 +29,17 @@ commands:
 | ------------- | ------------------------------------------------------------------- |
 | `kind`        | `command`                                                           |
 | `name`        | Required display name                                               |
-| `command`     | Required trusted shell command                                      |
+| `command`     | Trusted shell command; mutually exclusive with `exec`               |
+| `exec`        | Executable name or path, launched without a shell                   |
+| `args`        | Literal argument array, followed by resolved parameter flags        |
+| `shell`       | For `command`: `auto`, `sh`, `bash`, `powershell`, or `pwsh`        |
 | `description` | Optional searchable explanation                                     |
 | `cwd`         | Working directory, resolved relative to the configuration directory |
 | `params`      | Named typed inputs; see [parameters](/parameters/)                  |
 | `depends_on`  | IDs of one-shot prerequisites                                       |
 | `run`         | Task timeout or service startup policy                              |
 | `presets`     | Named non-secret input values                                       |
-| `source`      | Optional provenance metadata; never substitutes for `command`       |
+| `source`      | Optional provenance metadata; execution fields are still required   |
 
 `source` is either `{ package_script: { manifest: package.json, name: test } }` or `{ shell_script: scripts/check.sh }`. Discovered commands carry it automatically. An explicit YAML override replaces the entire discovered entry.
 
@@ -62,3 +65,29 @@ Prerequisites run sequentially before their dependent command. Each prerequisite
 Loading validates structure, IDs, dependency/step/condition cycles, parameter defaults, preset types, readiness settings, and pipeline references. `check` does this without spawning children. Preparing an invocation then resolves every active parameter across its entire graph before any process starts. Missing values in a later branch therefore cannot trigger earlier side effects.
 
 Validation does not execute shell code or verify that external tools, files, credentials, or services exist. Failures from those resources appear as runtime errors and exit codes.
+
+## Portable execution
+
+```yaml
+kind: command
+name: Run tests
+exec: node
+args: [scripts/test.mjs]
+run:
+  timeout_ms: 120000
+  retry:
+    attempts: 3
+    delay_ms: 250
+    backoff: 2
+```
+
+Exactly one of `command` or `exec` is required. `exec` passes arguments directly,
+including empty values, quotes and shell metacharacters. It cannot specify `shell`.
+`command` with `shell: auto` uses `/bin/sh` on Linux/macOS and Windows PowerShell
+on Windows. Shell syntax is not translated between platforms. Prefer `exec` when
+passing arbitrary arguments; Windows PowerShell 5.1 has legacy native-argument
+marshalling rules, whereas direct executable arguments preserve their exact values.
+
+Task `retry.attempts` is the total attempt count, from 1 to 10. Retries are opt-in;
+use them for commands that are safe to repeat. Prerequisites still run once per root
+invocation. Slots are released during retry backoff, which is capped at 60 seconds.

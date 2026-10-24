@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import type { CommandSearchResult, LocalState } from '@mink/core';
+import type { CommandSearchResult, LocalState } from '@yaroslavlky/mink-core';
 import { safeText } from '../actions.js';
 import { commandKind, rankCommands } from '../model/commands.js';
 import { CommandDetails } from '../components/command-details.js';

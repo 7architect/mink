@@ -41,16 +41,19 @@ it('masks secret environment exports in previews', () => {
     }),
   ).toBe("TOKEN='[hidden]' echo ready");
 });
-it('copies a command with cwd and literal environment shared by the whole shell', async () => {
-  const cwd = await directory(),
-    value = "a ' $(echo unsafe)";
-  const script = clipboardCommand({
-    cwd,
-    command: 'printf "%s\\n" "$NAME"; printf "%s\\n" "$NAME"; pwd',
-    args: [],
-    env: { NAME: value },
-  });
-  expect(execFileSync('/bin/sh', ['-c', script], { encoding: 'utf8' })).toBe(
-    `${value}\n${value}\n${cwd}\n`,
-  );
-});
+it.skipIf(process.platform === 'win32')(
+  'copies a command with cwd and literal environment shared by the whole shell',
+  async () => {
+    const cwd = await directory(),
+      value = "a ' $(echo unsafe)";
+    const script = clipboardCommand({
+      cwd,
+      command: 'printf "%s\\n" "$NAME"; printf "%s\\n" "$NAME"; pwd',
+      args: [],
+      env: { NAME: value },
+    });
+    expect(execFileSync('/bin/sh', ['-c', script], { encoding: 'utf8' })).toBe(
+      `${value}\n${value}\n${cwd}\n`,
+    );
+  },
+);

@@ -128,13 +128,31 @@ it('initializes once without changing an existing configuration', async () => {
   expect((await start(dir, ['init']).done).code).toBe(1);
   expect(await readFile(join(dir, 'mink.yml'), 'utf8')).toBe(original);
 });
-it('handles SIGTERM while owning a foreground service', async () => {
-  const dir = await fixture(),
-    run = start(dir, ['run', 'service']);
-  await expect.poll(run.output).toContain('Services ready');
-  run.child.kill('SIGTERM');
-  expect((await run.done).code).toBe(143);
+it('offers JSON diagnostics and plans without running tasks', async () => {
+  const dir = await fixture();
+  const plan = await start(dir, ['plan', 'secret', '--secret-env', 'token=TEST_TOKEN', '--json'], {
+    TEST_TOKEN: 'private',
+  }).done;
+  expect(plan.code).toBe(0);
+  expect(JSON.parse(plan.stdout).plan.env.TOKEN).toBe('[hidden]');
+  expect(plan.stdout).not.toContain('private');
+  const dryRun = await start(dir, ['run', 'fail', '--dry-run', '--json']).done;
+  expect(dryRun.code).toBe(0);
+  expect(JSON.parse(dryRun.stdout).plan.id).toBe('fail');
+  const report = await start(dir, ['doctor', '--json']).done;
+  expect(report.code).toBe(0);
+  expect(JSON.parse(report.stdout).ok).toBe(true);
 });
+it.skipIf(process.platform === 'win32')(
+  'handles SIGTERM while owning a foreground service',
+  async () => {
+    const dir = await fixture(),
+      run = start(dir, ['run', 'service']);
+    await expect.poll(run.output).toContain('Services ready');
+    run.child.kill('SIGTERM');
+    expect((await run.done).code).toBe(143);
+  },
+);
 
 it('reports a fast service failure and disposes services when a workflow fails', async () => {
   const dir = await fixture();

@@ -50,9 +50,11 @@ function stateRoot(directory?: string): string {
     directory ??
     (process.env.XDG_STATE_HOME
       ? join(process.env.XDG_STATE_HOME, 'mink')
-      : process.platform === 'darwin'
-        ? join(homedir(), 'Library', 'Application Support', 'mink')
-        : join(homedir(), '.local', 'state', 'mink'))
+      : process.platform === 'win32'
+        ? join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'mink')
+        : process.platform === 'darwin'
+          ? join(homedir(), 'Library', 'Application Support', 'mink')
+          : join(homedir(), '.local', 'state', 'mink'))
   );
 }
 export class SettingsStore {
