@@ -1,4 +1,4 @@
-import type { Language } from '@mink/core';
+import type { Language } from '@yaroslavlky/mink-core';
 import { en, type MessageKey } from './i18n/en.js';
 import { ru } from './i18n/ru.js';
 import { de } from './i18n/de.js';

@@ -1,4 +1,4 @@
-import type { RunEvent } from '@mink/core';
+import type { RunEvent } from '@yaroslavlky/mink-core';
 import { safeText } from '../actions.js';
 interface Chunk {
   sequence: number;
@@ -16,6 +16,20 @@ export interface LogLine {
   text: string;
 }
 export type LogFilter = { runId: string } | { instance: string };
+export function filterLogLines(
+  lines: LogLine[],
+  query: string,
+  stream = 'all',
+  owner?: string,
+): LogLine[] {
+  const needle = query.toLocaleLowerCase();
+  return lines.filter(
+    (line) =>
+      (stream === 'all' || line.stream === stream) &&
+      (!owner || line.id === owner) &&
+      (!needle || line.text.toLocaleLowerCase().includes(needle)),
+  );
+}
 const MAX_BYTES = 262144,
   MAX_CHUNKS = 1000;
 export class LogBuffer {

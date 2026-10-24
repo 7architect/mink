@@ -6,7 +6,7 @@ import type {
   RunEvent,
   RunResult,
   ServiceInfo,
-} from '@mink/core';
+} from '@yaroslavlky/mink-core';
 import { LogBuffer } from '../model/log-buffer.js';
 import { resultStates } from '../model/commands.js';
 import { t } from '../i18n.js';
@@ -23,7 +23,11 @@ export interface SessionView {
   logs: LogBuffer;
   runId?: string;
   states: Record<string, string>;
-  start: (id: string, values: Record<string, ParameterValue>) => Promise<void>;
+  start: (
+    id: string,
+    values: Record<string, ParameterValue>,
+    retryFailed?: RunResult,
+  ) => Promise<void>;
   cancel: () => void;
   stop: (instance: string, force?: boolean) => Promise<void>;
   restart: (instance: string) => Promise<RunResult>;
@@ -51,7 +55,9 @@ export function useSession(mink: Mink): SessionView {
         (now !== second &&
           mink
             .services()
-            .some((service) => ['starting', 'ready', 'stopping'].includes(service.state)))
+            .some((service) =>
+              ['starting', 'ready', 'unhealthy', 'stopping'].includes(service.state),
+            ))
       ) {
         dirty = false;
         second = now;
@@ -63,13 +69,17 @@ export function useSession(mink: Mink): SessionView {
       clearInterval(timer);
     };
   }, [mink]);
-  async function start(id: string, values: Record<string, ParameterValue>) {
+  async function start(
+    id: string,
+    values: Record<string, ParameterValue>,
+    retryFailed?: RunResult,
+  ) {
     if (busy.current) throw new Error(t('notice.cancelBeforeStart'));
     const plan = mink.plan(id, values),
       current = ++generation.current;
     busy.current = true;
     runId.current = undefined;
-    states.current = {};
+    states.current = retryFailed ? resultStates(retryFailed, plan.key) : {};
     controller.current = new AbortController();
     setInvocation({ id, plan, values, busy: true });
     const observe = (event: RunEvent) => {
@@ -78,11 +88,14 @@ export function useSession(mink: Mink): SessionView {
       const key = event.instance.slice(event.instance.indexOf(':') + 1);
       if (event.type === 'start') states.current[key] = 'running';
       if (event.type === 'ready') states.current[key] = 'ready';
+      if (event.type === 'health') states.current[key] = event.healthy ? 'ready' : 'unhealthy';
+      if (event.type === 'restart') states.current[key] = 'starting';
       if (event.type === 'finish') states.current[key] = event.result!.state;
     };
     try {
       const result = await mink.run(id, values, {
         signal: controller.current.signal,
+        retryFailed,
         onEvent: observe,
       });
       states.current = { ...resultStates(result, plan.key), ...states.current };

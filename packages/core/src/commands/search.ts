@@ -22,7 +22,10 @@ export function createCommandSearch(config: MinkConfiguration) {
     id,
     name: entry.name,
     description: entry.description ?? '',
-    command: entry.kind === 'command' ? entry.command : '',
+    command:
+      entry.kind === 'command'
+        ? (entry.command ?? [entry.exec, ...(entry.args ?? [])].join(' '))
+        : '',
     entry,
   }));
   const fuse = new Fuse(documents, {

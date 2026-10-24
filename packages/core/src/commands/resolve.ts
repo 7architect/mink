@@ -3,6 +3,8 @@ import type { Command, MinkConfiguration, Parameter, Pipeline } from '../types/s
 export type ParameterValue = string | number | boolean;
 export interface PreparedCommand {
   command: string;
+  executable?: string;
+  shell?: Command['shell'];
   env: Record<string, string>;
   args: string[];
   cwd?: string;
@@ -98,7 +100,7 @@ export function prepareEntry(
   directory?: string,
 ): PreparedCommand {
   const env: Record<string, string> = Object.create(null),
-    args: string[] = [];
+    args: string[] = [...(entry.args ?? [])];
   const cwd = directory && resolve(directory, entry.cwd ?? '.');
   for (const [name, value] of Object.entries(values)) {
     const p = entry.params![name];
@@ -108,7 +110,15 @@ export function prepareEntry(
       if (p.type !== 'boolean') args.push(String(value));
     }
   }
-  return { command: entry.command, env, args, cwd, timeoutMs: entry.run?.timeout_ms };
+  return {
+    command: entry.command ?? entry.exec!,
+    executable: entry.exec,
+    shell: entry.shell,
+    env,
+    args,
+    cwd,
+    timeoutMs: entry.run?.timeout_ms,
+  };
 }
 export function resolveCommand(
   config: MinkConfiguration,
@@ -120,11 +130,18 @@ export function resolveCommand(
   if (entry.kind !== 'command') throw new Error(`${id} is a pipeline; use plan() to inspect it`);
   return prepareEntry(entry, resolveValues(entry, values, id));
 }
-export function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", "'\\''")}'`;
+export function shellQuote(value: string, shell: 'sh' | 'powershell' = 'sh'): string {
+  return shell === 'powershell'
+    ? `'${value.replaceAll("'", "''")}'`
+    : `'${value.replaceAll("'", "'\\''")}'`;
 }
-export function commandLine(prepared: PreparedCommand): string {
-  return [prepared.command, ...prepared.args.map(shellQuote)].join(' ');
+export function commandLine(prepared: PreparedCommand, shell: 'sh' | 'powershell' = 'sh'): string {
+  return [
+    prepared.executable
+      ? (shell === 'powershell' ? '& ' : '') + shellQuote(prepared.executable, shell)
+      : prepared.command,
+    ...prepared.args.map((arg) => shellQuote(arg, shell)),
+  ].join(' ');
 }
 export function parseParameter(p: Parameter, value: string): ParameterValue {
   if (p.type === 'boolean') {

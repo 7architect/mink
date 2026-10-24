@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { languages, themes, type Language, type Settings, type ThemeName } from '@mink/core';
+import {
+  languages,
+  themes,
+  type Language,
+  type Settings,
+  type ThemeName,
+} from '@yaroslavlky/mink-core';
 import { Panel } from '../components/ui.js';
 import type { Viewport } from '../components/frame.js';
 import { colors } from '../theme.js';

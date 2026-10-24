@@ -31,7 +31,7 @@ export const de = {
   'tab.services': 'DIENSTE',
   'tab.settings': 'EINSTELLUNGEN',
   'tab.hint': 'Tab / ⇧Tab',
-  'services.summary': '{count} Dienste · alpha 0.1',
+  'services.summary': '{count} Dienste',
   'terminal.tooSmall': 'Terminal auf mindestens 48 × 20 vergrößern. Ctrl+C beendet.',
   'common.error': 'Fehler: {message}',
   'common.moreSteps': '+{count} weitere Schritte',
@@ -132,4 +132,6 @@ export const de = {
   'help.toggle': 'Hilfe ein- oder ausblenden',
   'hint.copyOutput': 'Ausgabe kopieren',
   'notice.outputCopied': 'Ausgabe kopiert',
+  'log.filters': '/ Suche · ^L {stream} · ^N {owner} · ^U löschen · {query}',
+  'state.unhealthy': 'gestört',
 } satisfies Record<MessageKey, string>;

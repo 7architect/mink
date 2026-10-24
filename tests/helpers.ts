@@ -21,7 +21,8 @@ export function command(code: string, extra: object = {}) {
   return {
     kind: 'command' as const,
     name: 'Test command',
-    command: `${JSON.stringify(process.execPath)} -e '${code.replaceAll("'", "'\\''")}' --`,
+    exec: process.execPath,
+    args: ['-e', code, '--'],
     ...extra,
   };
 }

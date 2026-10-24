@@ -1,9 +1,9 @@
-# @mink/core
+# @yaroslavlky/mink-core
 
-Headless Mink engine. Node.js 24+, Linux/macOS. No React, Ink, or CLI framework dependency.
+Headless Mink engine. Node.js 24+, Linux/macOS/Windows. No React, Ink, or CLI framework dependency.
 
 ```ts
-import { createMink } from '@mink/core';
+import { createMink } from '@yaroslavlky/mink-core';
 const mink = await createMink({ cwd: '/path/to/project' });
 try {
   console.log(mink.searchCommands('test'));
@@ -28,6 +28,8 @@ try {
 
 Options: `configFile`, `cwd`, `discover` (default true), `stateDirectory` (override local storage for embedding/testing), and a Consola `logger`. `getConfig` and search results return detached snapshots. Prepared commands/plans can include secret values; treat them as sensitive in application code.
 
-The JSON Schema in `schema/mink.schema.json` owns configuration shape. Run `pnpm schema:generate` after changes. Semantic validation checks references and cycles; planning resolves every input before side effects. The runtime owns DAG scheduling, root process concurrency, POSIX groups, readiness, cancellation, and timeout. State updates use a cross-process lock and atomic rename.
+The JSON Schema in `schema/mink.schema.json` owns configuration shape. Run `pnpm schema:generate` after changes. Semantic validation checks references and cycles; planning resolves every input before side effects. The runtime owns DAG scheduling, root process concurrency, POSIX groups or Windows Job Objects, readiness, cancellation, and timeout. State updates use a cross-process lock and atomic rename.
 
 See [architecture](../../apps/docs/content/architecture.mdx), [configuration](../../apps/docs/content/configuration.mdx), and the runnable [demo](../../examples/demo/mink.yml). Raw child output is preserved; consumers rendering it in terminals should sanitize control sequences as appropriate.
+
+Public helpers: `doctor`, `describePlan`, `formatPlan`, `watchTasks`, `createRunLog`, `redactSecrets`, and `planFailedBranches`. Raw execution plans contain sensitive prepared environment values; use `describePlan` before serializing.

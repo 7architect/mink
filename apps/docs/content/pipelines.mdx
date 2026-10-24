@@ -59,3 +59,30 @@ The **root invocation's `max_parallel`** bounds simultaneous starting/task proce
 Service startup occupies a slot until readiness, then releases it. Ready services continue running outside the task/startup budget. `needs` on a service means it reached readiness; it does not continuously monitor that service's health. Later service failure appears in its output and service state. A pipeline can reach success while its ready services remain alive in the session.
 
 Use `depends_on` for deduplicated one-shot prerequisites. A command used in two explicit pipeline steps runs twice; only prerequisites share a per-invocation promise cache. Scheduling the same service ID twice is rejected before the graph begins.
+
+## Failure policies
+
+```yaml
+kind: pipeline
+name: Verify
+max_parallel: 2
+fail_fast: true
+timeout_ms: 120000
+steps:
+  lint: { uses: lint }
+  test: { uses: test }
+```
+
+By default, independent branches finish after a failure. `fail_fast: true` cancels
+siblings within that pipeline and reports failure. `timeout_ms` bounds the pipeline
+phase and reports a timed-out failure; a root deadline also cancels shared
+prerequisites. Nested policies retain the root process budget. Shared prerequisites
+belong to the root invocation and are not cancelled solely by a nested sibling's
+failure, because another branch may need them.
+
+Task retries are configured with `run.retry`; see [configuration](/configuration/).
+In the TUI, `f` on a completed failed/cancelled invocation replans the failed branches
+and their prerequisites. Required successful steps run again, including services;
+unrelated successful work is preserved and marked `reused` in the result. The core
+API exposes the same behavior with `run(id, values, { retryFailed: previousResult })`.
+The full configuration and parameters are validated again before side effects.

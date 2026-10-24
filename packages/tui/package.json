@@ -1,12 +1,11 @@
 {
-  "name": "@mink/tui",
+  "name": "@yaroslavlky/mink-tui",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsup src/index.tsx --format esm --target node24 --platform node --dts --out-dir dist --clean",
+    "build": "tsup src/index.tsx --format esm --target node24 --platform node --dts --out-dir dist --clean && node ../../scripts/prepare-package.mjs tui",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "license": "MIT",
@@ -15,14 +14,28 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "devDependencies": {
     "tsup": "^8.5.1"
   },
   "dependencies": {
-    "@mink/core": "workspace:*",
-    "ink": "^8.0.0",
-    "react": "^19.3.0"
-  }
+    "@yaroslavlky/mink-core": "workspace:*",
+    "ink": "catalog:",
+    "react": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yaroslavlky/mink.git",
+    "directory": "packages/tui"
+  },
+  "homepage": "https://yaroslavlky.github.io/mink/",
+  "bugs": {
+    "url": "https://github.com/yaroslavlky/mink/issues"
+  },
+  "description": "Interactive terminal command center for Mink"
 }

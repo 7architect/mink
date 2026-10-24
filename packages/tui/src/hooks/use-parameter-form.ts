@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { parameterFields, parseParameter, resolveValues } from '@mink/core';
+import { parameterFields, parseParameter, resolveValues } from '@yaroslavlky/mink-core';
 import { parameterOptions, type CommandEntry, type Values } from '../model/commands.js';
 export function useParameterForm(
   entry: CommandEntry,

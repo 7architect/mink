@@ -35,6 +35,34 @@ Mink rejects a second scheduled/running instance of the same service ID, includi
 
 ## Shutdown
 
-Each child starts in its own POSIX process group. Cancel, timeout, shutdown, and natural shell exit clean up its descendants. SIGTERM escalates to SIGKILL after 800 ms if the shell has not exited. Mink acts only on process groups it created.
+On Linux/macOS each child starts in its own POSIX process group. On Windows a supervisor assigns a suspended process to a kill-on-close Job Object before allowing it to create descendants. Cancel, timeout, shutdown, and natural shell exit clean up its descendants. SIGTERM escalates to SIGKILL after 800 ms if the shell has not exited. Mink acts only on process groups it created.
 
-Exiting the palette or sending SIGINT/SIGTERM to Mink disposes of its session. `mink run` stays alive while its services run and reports a service failure through the exit code. There is no daemon, restart-after-crash supervisor, external-process adoption, or persistence across sessions. A child that deliberately detaches into a new session is beyond process-group ownership.
+Exiting the palette or sending SIGINT/SIGTERM to Mink disposes of its session. `mink run` stays alive while its services run and reports a service failure through the exit code. There is no daemon, external-process adoption or persistence across sessions. Optional restart policies run only while Mink owns the session. A child that deliberately detaches into a new session is beyond process-group ownership.
+
+## Continuous health and bounded restart
+
+```yaml
+run:
+  mode: service
+  ready: { type: http, url: 'http://127.0.0.1:3000/health' }
+  health:
+    type: http
+    url: http://127.0.0.1:3000/health
+    interval_ms: 1000
+    failure_threshold: 3
+  restart:
+    max_attempts: 2
+    delay_ms: 500
+    backoff: 2
+```
+
+`ready` checks startup. Optional `health` continues TCP or HTTP checks after readiness.
+Without `restart`, an unhealthy service stays running, appears as unhealthy, and can
+recover when probes succeed. With `restart`, reaching the failure threshold stops
+the owned process tree and starts a replacement. Non-zero service exits can also
+trigger restart. `max_attempts` counts replacements after the initial attempt, from
+0 to 10; backoff is capped at 60 seconds. Stop/cancellation never triggers restart.
+
+The logical service retains a single completion promise across replacements and
+only one owned instance. Restart startup reacquires a root process slot. Exhausting
+the budget reports failure to the CLI. One-shot prerequisites are not repeated.

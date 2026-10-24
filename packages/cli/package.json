@@ -1,12 +1,11 @@
 {
-  "name": "mink",
+  "name": "@yaroslavlky/mink",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsup src/index.ts --format esm --target node24 --platform node --dts --out-dir dist --clean",
+    "build": "tsup src/index.ts --format esm --target node24 --platform node --dts --out-dir dist --clean && node ../../scripts/prepare-package.mjs cli",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "license": "MIT",
@@ -15,7 +14,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "devDependencies": {
     "tsup": "^8.5.1"
@@ -24,9 +24,22 @@
     "mink": "./dist/index.js"
   },
   "dependencies": {
-    "@mink/core": "workspace:*",
-    "@mink/tui": "workspace:*",
+    "@yaroslavlky/mink-core": "workspace:*",
+    "@yaroslavlky/mink-tui": "workspace:*",
     "citty": "^0.2.2",
     "consola": "^3.4.2"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yaroslavlky/mink.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://yaroslavlky.github.io/mink/",
+  "bugs": {
+    "url": "https://github.com/yaroslavlky/mink/issues"
+  },
+  "description": "Your repository control center: tasks, pipelines and local services"
 }

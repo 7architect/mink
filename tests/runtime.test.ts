@@ -94,14 +94,11 @@ it('bounds concurrent processes across independent nested graphs', async () => {
   expect(active).toBe(0);
 });
 
-it('kills a background grandchild when its shell exits naturally', async () => {
-  const child = command('setInterval(()=>{},100)').command;
+it('kills a background descendant when its parent exits naturally', async () => {
   const m = await project({
-    background: {
-      kind: 'command',
-      name: 'background',
-      command: `${child} & echo $! > child.pid; sleep 0.1`,
-    },
+    background: command(
+      'const child=require("child_process").spawn(process.execPath,["-e","setInterval(()=>{},100)"],{stdio:"ignore"});require("fs").writeFileSync("child.pid",String(child.pid));child.unref()',
+    ),
   });
   expect((await m.run('background')).state).toBe('succeeded');
   const pid = Number(await readFile(join(m.directory, 'child.pid'), 'utf8'));

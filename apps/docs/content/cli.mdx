@@ -4,15 +4,18 @@ title: CLI and palette
 
 # One engine, two interfaces
 
-| Command                   | Behavior                                            |
-| ------------------------- | --------------------------------------------------- |
-| `mink` or `mink ui`       | Interactive command palette; requires a TTY         |
-| `mink list [--json]`      | List discovered and configured entries              |
-| `mink check`              | Validate schema, references, conditions, and cycles |
-| `mink run <id>`           | Run a task or pipeline with live stdout/stderr      |
-| `mink init`               | Create a configuration without overwriting          |
-| `mink preset <id> <name>` | Save a new local parameter preset                   |
-| `mink favorite <id>`      | Toggle a local favorite                             |
+| Command                   | Behavior                                              |
+| ------------------------- | ----------------------------------------------------- |
+| `mink` or `mink ui`       | Interactive command palette; requires a TTY           |
+| `mink list [--json]`      | List discovered and configured entries                |
+| `mink doctor [--json]`    | Diagnose config, tools, local ports and storage       |
+| `mink plan <id> [--json]` | Inspect the resolved graph with secrets masked        |
+| `mink watch <id>`         | Rerun on file changes without overlapping invocations |
+| `mink check`              | Validate schema, references, conditions, and cycles   |
+| `mink run <id>`           | Run a task or pipeline with live stdout/stderr        |
+| `mink init`               | Create a configuration without overwriting            |
+| `mink preset <id> <name>` | Save a new local parameter preset                     |
+| `mink favorite <id>`      | Toggle a local favorite                               |
 
 Place options **after the subcommand**. `--config path` selects a file explicitly. `--no-discovery` loads only that file. `--help` is available on every command.
 
@@ -40,7 +43,7 @@ Tab cycles through Commands → Output → Services; Shift+Tab reverses the orde
 
 Favorites appear first; recent commands follow. The output view retains the most recent 256 KiB in at most 1,000 chunks and renders a tail sized to the terminal. PageUp/PageDown scroll and pause following; End resumes live output. Resizing switches between split and stacked panels. The minimum viewport is 48 × 20. Child terminal control sequences are stripped in the TUI.
 
-Clipboard support uses `pbcopy` on macOS or `wl-copy`/`xclip` on Linux. Missing tools produce an error in the interface. Copy includes the working directory and environment exports inside a subshell; secret values cannot be copied. Pipelines have no single shell command to copy.
+Clipboard support uses Windows PowerShell on Windows, `pbcopy` on macOS or `wl-copy`/`xclip` on Linux. Missing tools produce an error in the interface. Copy includes the working directory and environment exports inside a subshell; secret values cannot be copied. Pipelines have no single shell command to copy.
 
 ## Exit and stdin
 
@@ -49,3 +52,36 @@ Headless runs preserve a task's exit code, use **1** for a failed pipeline/confi
 CLI runs inherit stdin. Palette runs normally ignore stdin; use **Shift+Enter** for a command that reads terminal input. Mink temporarily leaves Ink, forwards the command's output, then reopens the palette. Output remains piped; applications that require a real PTY are outside this alpha.
 
 Services keep `mink run` alive after readiness. Ctrl+C or SIGTERM stops owned processes before exit. A ready service in the palette continues while you choose other actions.
+
+## Plans, diagnostics and watch
+
+```sh
+mink doctor --json
+mink plan verify --json
+mink run verify --dry-run
+mink watch test --path src --path tests --ignore generated --debounce 150 --mode restart
+mink run verify --log-file run.jsonl
+```
+
+`doctor` does not run project tasks or create local state. Missing explicit tools,
+invalid configuration and inaccessible working directories fail diagnostics;
+occupied local service ports are warnings. Dependencies hidden inside trusted shell
+code cannot be inferred. `plan` and `--dry-run` resolve the full graph before any
+execution and mask secret inputs. JSON plans have `formatVersion: 1`.
+
+Watch reloads configuration for each run. `restart` cancels and awaits the previous
+invocation; `queue` waits and coalesces changes into one subsequent run. Both modes
+are serialized. Dependencies, Git metadata, state and common build-output folders
+are excluded. Repeat `--path` and `--ignore` for explicit files or directories.
+Services remain owned until the next restart or session shutdown.
+
+In Output and Services, `/` opens literal case-insensitive search; Enter applies it
+and Esc closes editing. Ctrl+L cycles all/stdout/stderr, Ctrl+N cycles process IDs,
+and Ctrl+U clears filters. Output `f` reruns failed/cancelled branches together with
+required prerequisites, preserving unrelated successful branches. This uses only
+the current in-memory invocation and never persists parameter values.
+
+`--log-file` explicitly creates a new JSONL file and refuses to overwrite an existing
+file. Records include time, process identity, stream and text. Known secret inputs
+are redacted across chunk boundaries independently for each stream. Live CLI output
+remains raw. Unrelated secrets printed by external tools cannot be recognized.

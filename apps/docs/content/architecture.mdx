@@ -6,12 +6,12 @@ title: Architecture
 
 Mink is a pnpm workspace with three runtime packages and one documentation app.
 
-| Package      | Owns                                                                                             | Does not depend on         |
-| ------------ | ------------------------------------------------------------------------------------------------ | -------------------------- |
-| `@mink/core` | Discovery, schema/semantic validation, resolution, planning, execution, process ownership, state | React, Ink, citty          |
-| `@mink/tui`  | Ink screens, keyboard input, bounded output buffer, explicit clipboard/browser actions           | CLI argument parsing       |
-| `mink`       | citty commands, typed CLI values, signal lifetime, stdout/stderr and exit codes                  | Screen internals           |
-| `@mink/docs` | Nextra/Next static documentation and Pagefind search                                             | Runtime process management |
+| Package                  | Owns                                                                                             | Does not depend on         |
+| ------------------------ | ------------------------------------------------------------------------------------------------ | -------------------------- |
+| `@yaroslavlky/mink-core` | Discovery, schema/semantic validation, resolution, planning, execution, process ownership, state | React, Ink, citty          |
+| `@yaroslavlky/mink-tui`  | Ink screens, keyboard input, bounded output buffer, explicit clipboard/browser actions           | CLI argument parsing       |
+| `mink`                   | citty commands, typed CLI values, signal lifetime, stdout/stderr and exit codes                  | Screen internals           |
+| `@mink/docs`             | Nextra/Next static documentation and Pagefind search                                             | Runtime process management |
 
 ## From configuration to execution
 
@@ -26,7 +26,7 @@ ExecutionPlan (pure graph, no children)
           ↓
 Session → DAG promises + root process semaphore
           ↓
-POSIX process groups → typed events + RunResult
+POSIX groups / Windows Job Objects → typed events + RunResult
 ```
 
 The schema is the configuration source of truth; TypeScript types are generated from it. Semantic validation handles what schema cannot express: graph cycles, ID relationships, compatible references, and input conditions. `planExecution` constructs a complete graph and prepares shell/env/cwd values before runtime begins. UI and CLI share these boundaries.
@@ -37,7 +37,7 @@ A session owns its process handles, abort controllers, service reservations, and
 
 A service reservation is acquired synchronously before the first await so concurrent invocations cannot start duplicates. Each process has separate readiness and completion promises. Task readiness equals completion; service readiness can resolve earlier. Observers receive start/stdout/stderr/ready/finish events and cannot throw into process ownership logic.
 
-Each spawn creates a detached POSIX process group. Group termination cleans descendants and escalates after a bounded grace period. Session disposal cancels invocations and awaits owned process completion. Service restart reuses its prepared plan while omitting already-completed prerequisites. There is no hidden background scheduler or global daemon.
+On Linux/macOS, each spawn creates a detached POSIX process group. On Windows a PowerShell/.NET supervisor assigns a suspended Node launcher to a kill-on-close Job Object before resuming it. Group termination cleans descendants and escalates after a bounded grace period. Session disposal cancels invocations and awaits owned process completion. Service restart reuses its prepared plan while omitting already-completed prerequisites. There is no hidden background scheduler or global daemon.
 
 ## Interface and state boundaries
 
@@ -49,4 +49,4 @@ The state store is separate from execution. Per-project JSON writes use a cross-
 
 ## Deliberate alpha limits
 
-Linux/macOS and Node 24 are explicit requirements. The root concurrency limit covers task/startup processes, not ready services. Probes check startup readiness rather than ongoing health. Full PTY emulation, session persistence, plugins, configuration inheritance, remote/Git integrations, and Make/Taskfile/Compose discovery are deferred. These are separate capabilities, not silent partially-supported paths.
+Linux/macOS/Windows and Node 24 are explicit runtime targets. The root concurrency limit covers task/startup processes, not ready services. Readiness probes check startup; optional health probes continue afterward and can drive bounded restart policies. Full PTY emulation, session persistence, plugins, configuration inheritance, remote/Git integrations are deferred. These are separate capabilities, not silent partially-supported paths.

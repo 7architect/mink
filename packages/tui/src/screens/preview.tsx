@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import type { ExecutionPlan } from '@mink/core';
+import type { ExecutionPlan } from '@yaroslavlky/mink-core';
 import { safeText } from '../actions.js';
 import { commandKind, commandPreview, planRows, type CommandEntry } from '../model/commands.js';
 import { KindBadge, Panel } from '../components/ui.js';

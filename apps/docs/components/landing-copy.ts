@@ -234,7 +234,8 @@ export const landingCopy: Record<Locale, LandingCopy> = {
         },
         {
           question: 'Which platforms are supported?',
-          answer: 'Linux and macOS with Node.js 24 or newer. Windows is not supported yet.',
+          answer:
+            'Windows, Linux and macOS with Node.js 24 or newer. Windows requires Windows PowerShell.',
         },
         {
           question: 'Can I use Mink in my language?',
@@ -394,7 +395,8 @@ export const landingCopy: Record<Locale, LandingCopy> = {
         },
         {
           question: 'Какие платформы поддерживаются?',
-          answer: 'Linux и macOS с Node.js 24 или новее. Windows пока не поддерживается.',
+          answer:
+            'Windows, Linux и macOS с Node.js 24 или новее. На Windows нужен Windows PowerShell.',
         },
         {
           question: 'Можно пользоваться Mink на своём языке?',
@@ -555,7 +557,8 @@ export const landingCopy: Record<Locale, LandingCopy> = {
         },
         {
           question: 'Welche Plattformen werden unterstützt?',
-          answer: 'Linux und macOS mit Node.js 24 oder neuer. Windows wird noch nicht unterstützt.',
+          answer:
+            'Windows, Linux und macOS mit Node.js 24 oder neuer. Windows benötigt Windows PowerShell.',
         },
         {
           question: 'Kann ich Mink in meiner Sprache nutzen?',
@@ -716,7 +719,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
         {
           question: 'Quelles plateformes sont prises en charge ?',
           answer:
-            'Linux et macOS avec Node.js 24 ou plus récent. Windows n’est pas encore pris en charge.',
+            'Windows, Linux et macOS avec Node.js 24 ou plus récent. Windows nécessite Windows PowerShell.',
         },
         {
           question: 'Puis-je utiliser Mink dans ma langue ?',
@@ -868,7 +871,8 @@ export const landingCopy: Record<Locale, LandingCopy> = {
         },
         {
           question: '支持哪些平台？',
-          answer: 'Linux 和 macOS，需要 Node.js 24 或更新版本。暂不支持 Windows。',
+          answer:
+            '支持 Windows、Linux 和 macOS，需要 Node.js 24 或更新版本。Windows 需要 Windows PowerShell。',
         },
         {
           question: '可以用中文界面吗？',

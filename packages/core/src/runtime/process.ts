@@ -1,8 +1,7 @@
-import { spawn } from 'node:child_process';
 import { createConnection } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { ExecutionPlan } from '../commands/plan.js';
-import { commandLine } from '../commands/resolve.js';
+import { spawnOwned } from './platform.js';
 
 export type RunState = 'succeeded' | 'failed' | 'cancelled' | 'skipped' | 'ready';
 export interface RunResult {
@@ -13,25 +12,29 @@ export interface RunResult {
   state: RunState;
   error?: string;
   steps?: Record<string, RunResult>;
+  attempts?: number;
+  reused?: boolean;
 }
 export interface RunEvent {
-  type: 'start' | 'stdout' | 'stderr' | 'ready' | 'finish';
+  type: 'start' | 'stdout' | 'stderr' | 'ready' | 'finish' | 'health' | 'restart';
   runId: string;
   instance: string;
   id: string;
   time: number;
   chunk?: string;
   result?: RunResult;
+  healthy?: boolean;
 }
 export interface RunOptions {
   signal?: AbortSignal;
   onEvent?: (event: RunEvent) => void;
   stdin?: 'inherit' | 'ignore';
+  retryFailed?: RunResult;
 }
 export interface ProcessHandle {
   instance: string;
   id: string;
-  state: 'starting' | 'ready' | 'stopping' | 'stopped' | 'failed';
+  state: 'starting' | 'ready' | 'unhealthy' | 'stopping' | 'stopped' | 'failed';
   started: number;
   url?: string;
   ready: Promise<RunResult>;
@@ -51,6 +54,104 @@ export function startProcess(
   instance: string,
   options: RunOptions,
   notify: (event: RunEvent) => void,
+  restartSlot?: (signal: AbortSignal) => Promise<() => void>,
+): ProcessHandle {
+  const policy = plan.entry?.run?.restart;
+  if (!policy) return startSingleProcess(plan, runId, instance, options, notify);
+  const started = Date.now();
+  const controller = new AbortController();
+  const signal = options.signal
+    ? AbortSignal.any([options.signal, controller.signal])
+    : controller.signal;
+  let current: ProcessHandle | undefined;
+  let state: ProcessHandle['state'] | undefined;
+  let force = false,
+    everReady = false;
+  let ready!: (result: RunResult) => void;
+  const readiness = new Promise<RunResult>((resolve) => {
+    ready = resolve;
+  });
+  const completion = (async (): Promise<RunResult> => {
+    let result: RunResult = {
+      exitCode: null,
+      signal: null,
+      durationMs: 0,
+      timedOut: false,
+      state: 'cancelled',
+    };
+    let attempt = 0;
+    try {
+      for (; attempt <= policy.max_attempts && !signal.aborted; attempt++) {
+        if (attempt) {
+          state = 'starting';
+          await delay(
+            Math.min(60000, (policy.delay_ms ?? 500) * (policy.backoff ?? 2) ** (attempt - 1)),
+            undefined,
+            { signal },
+          );
+          notify({ type: 'restart', runId, instance, id: plan.id, time: Date.now() });
+        }
+        const release = attempt && everReady && restartSlot ? await restartSlot(signal) : undefined;
+        try {
+          if (signal.aborted) break;
+          current = startSingleProcess(plan, runId, instance, { ...options, signal }, notify);
+          state = undefined;
+          const initial = await current.ready;
+          if (initial.state === 'ready') {
+            everReady = true;
+            ready({ ...initial, attempts: attempt + 1 });
+          }
+        } finally {
+          release?.();
+        }
+        result = await current!.completion;
+        if (result.state !== 'failed') break;
+      }
+    } catch (error) {
+      result = {
+        ...result,
+        state: signal.aborted ? 'cancelled' : 'failed',
+        ...(signal.aborted ? {} : { error: String(error) }),
+      };
+    }
+    if (signal.aborted) result = { ...result, state: 'cancelled' };
+    state = result.state === 'failed' ? 'failed' : 'stopped';
+    result = {
+      ...result,
+      durationMs: Date.now() - started,
+      attempts: Math.min(attempt + 1, policy.max_attempts + 1),
+    };
+    ready(result);
+    return result;
+  })();
+  return {
+    instance,
+    id: plan.id,
+    started,
+    url: plan.entry?.run?.ready?.url ?? plan.entry?.run?.health?.url,
+    get state() {
+      return state ?? current?.state ?? 'starting';
+    },
+    ready: readiness,
+    completion,
+    plan,
+    options,
+    stop(immediate = false) {
+      if (state === 'failed' || state === 'stopped') return;
+      force ||= immediate;
+      state = 'stopping';
+      controller.abort();
+      current?.stop(force);
+    },
+  };
+}
+
+function startSingleProcess(
+  plan: ExecutionPlan,
+  runId: string,
+  instance: string,
+  options: RunOptions,
+  notify: (event: RunEvent) => void,
 ): ProcessHandle {
   const started = Date.now(),
     entry = plan.entry!,
@@ -61,6 +162,7 @@ export function startProcess(
     cancelled = false,
     finished = false,
     isReady = false;
+  let failure: string | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined,
     escalation: ReturnType<typeof setTimeout> | undefined;
   let complete!: (result: RunResult) => void, ready!: (result: RunResult) => void;
@@ -70,13 +172,6 @@ export function startProcess(
     readiness = new Promise<RunResult>((r) => {
       ready = r;
     });
-  const child = spawn(commandLine(prepared), {
-    cwd: prepared.cwd,
-    env: { ...process.env, ...prepared.env },
-    shell: true,
-    detached: true,
-    stdio: [options.stdin ?? 'ignore', 'pipe', 'pipe'],
-  });
   const emit = (type: RunEvent['type'], extra: Partial<RunEvent> = {}) =>
     notify({ type, runId, instance, id: plan.id, time: Date.now(), ...extra });
   const handle: ProcessHandle = {
@@ -84,34 +179,26 @@ export function startProcess(
     id: plan.id,
     state: 'starting',
     started,
-    url: entry.run?.ready?.url,
+    url: entry.run?.ready?.url ?? entry.run?.health?.url,
     ready: service ? readiness : completion,
     completion,
     stop,
     plan,
     options,
   };
-  function kill(signal: NodeJS.Signals): void {
-    if (child.pid) {
-      try {
-        process.kill(-child.pid, signal);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ESRCH') child.kill(signal);
-      }
-    }
-  }
+  const child = spawnOwned(prepared, options.stdin ?? 'ignore', (stream, chunk) =>
+    emit(stream, { chunk }),
+  );
   function stop(force = false): void {
     if (finished) return;
     cancelled = !timedOut;
     handle.state = 'stopping';
-    kill(force ? 'SIGKILL' : 'SIGTERM');
-    if (!force && !escalation) escalation = setTimeout(() => kill('SIGKILL'), 800);
+    child.stop(force);
+    if (!force && !escalation) escalation = setTimeout(() => child.stop(true), 800);
   }
   const abort = () => stop();
   options.signal?.addEventListener('abort', abort, { once: true });
   if (options.signal?.aborted) stop();
-  child.stdout?.setEncoding('utf8').on('data', (chunk: string) => emit('stdout', { chunk }));
-  child.stderr?.setEncoding('utf8').on('data', (chunk: string) => emit('stderr', { chunk }));
   function finish(exitCode: number | null, signal: NodeJS.Signals | null, error?: string): void {
     if (finished) return;
     finished = true;
@@ -119,11 +206,9 @@ export function startProcess(
     if (timer) clearTimeout(timer);
     if (escalation) clearTimeout(escalation);
     options.signal?.removeEventListener('abort', abort);
-    // Every descendant belongs to this invocation, including backgrounded children.
-    kill('SIGKILL');
     const state: RunState = cancelled
       ? 'cancelled'
-      : !timedOut && !error && exitCode === 0 && (!service || isReady)
+      : !timedOut && !error && !failure && exitCode === 0 && (!service || isReady)
         ? 'succeeded'
         : 'failed';
     const result: RunResult = {
@@ -132,17 +217,21 @@ export function startProcess(
       durationMs: Date.now() - started,
       timedOut,
       state,
-      ...(error ? { error } : {}),
+      ...(error || failure ? { error: error ?? failure } : {}),
     };
     handle.state = state === 'failed' ? 'failed' : 'stopped';
     ready(result);
     complete(result);
     emit('finish', { result });
   }
-  child.once('error', (error) => finish(null, null, error.message));
-  child.once('exit', () => kill('SIGKILL'));
-  child.once('close', (code, signal) => finish(code, signal));
-  child.once('spawn', () => {
+  timer = setTimeout(() => {
+    timedOut = true;
+    stop(true);
+  }, 30000);
+  void child.completion.then(({ code, signal, error }) => finish(code, signal, error));
+  void child.started.then(() => {
+    if (finished) return;
+    if (timer) clearTimeout(timer);
     emit('start');
     if (options.signal?.aborted) {
       stop();
@@ -160,21 +249,7 @@ export function startProcess(
     const check = entry.run?.ready;
     try {
       while (!finished && !probeAbort.signal.aborted) {
-        let ok = !check || check.type === 'process';
-        if (check?.type === 'tcp')
-          ok = await tcpReady(check.host ?? '127.0.0.1', check.port!, probeAbort.signal);
-        if (check?.type === 'http') {
-          try {
-            const response = await fetch(check.url!, {
-              signal: AbortSignal.any([probeAbort.signal, AbortSignal.timeout(500)]),
-              redirect: 'error',
-            });
-            ok = response.ok;
-            await response.body?.cancel();
-          } catch {
-            ok = false;
-          }
-        }
+        const ok = !check || (await probe(check, probeAbort.signal));
         if (finished || handle.state === 'stopping') return;
         if (ok) {
           isReady = true;
@@ -189,6 +264,7 @@ export function startProcess(
           };
           ready(result);
           emit('ready', { result });
+          if (entry.run?.health) void monitorHealth();
           return;
         }
         await delay(check?.interval_ms ?? 100, undefined, { signal: probeAbort.signal });
@@ -200,7 +276,52 @@ export function startProcess(
       }
     }
   }
+  async function monitorHealth(): Promise<void> {
+    const check = entry.run!.health!;
+    let failures = 0;
+    try {
+      while (!probeAbort.signal.aborted) {
+        await delay(check.interval_ms ?? 1000, undefined, { signal: probeAbort.signal });
+        const healthy = await probe(check, probeAbort.signal);
+        if (finished || handle.state === 'stopping') return;
+        failures = healthy ? 0 : failures + 1;
+        if (!healthy && failures < (check.failure_threshold ?? 3)) continue;
+        const next = healthy ? 'ready' : 'unhealthy';
+        if (handle.state !== next) {
+          handle.state = next;
+          emit('health', { healthy });
+        }
+        if (!healthy && entry.run?.restart) {
+          failure = 'Service health check failed';
+          child.stop(false);
+          escalation = setTimeout(() => child.stop(true), 800);
+          return;
+        }
+      }
+    } catch (error) {
+      if (!probeAbort.signal.aborted)
+        emit('stderr', { chunk: `Health check failed: ${String(error)}\n` });
+    }
+  }
   return handle;
+}
+async function probe(
+  check: NonNullable<NonNullable<ExecutionPlan['entry']>['run']>['ready'],
+  signal: AbortSignal,
+): Promise<boolean> {
+  if (!check || check.type === 'process') return true;
+  if (check.type === 'tcp') return tcpReady(check.host ?? '127.0.0.1', check.port!, signal);
+  try {
+    const response = await fetch(check.url!, {
+      signal: AbortSignal.any([signal, AbortSignal.timeout(500)]),
+      redirect: 'error',
+    });
+    const ok = response.ok;
+    await response.body?.cancel();
+    return ok;
+  } catch {
+    return false;
+  }
 }
 async function tcpReady(host: string, port: number, signal: AbortSignal): Promise<boolean> {
   return new Promise((resolve) => {

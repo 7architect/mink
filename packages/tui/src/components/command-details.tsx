@@ -44,7 +44,7 @@ export function CommandDetails({
           <Text wrap="truncate" color={entry.kind === 'pipeline' ? colors.pipeline : colors.text}>
             {safeText(
               entry.kind === 'command'
-                ? entry.command
+                ? (entry.command ?? [entry.exec, ...(entry.args ?? [])].join(' '))
                 : t('details.steps', {
                     steps: Object.keys(entry.steps).length,
                     parallel: entry.max_parallel ?? t('common.unlimited'),

@@ -30,7 +30,7 @@ export const en = {
   'tab.services': 'SERVICES',
   'tab.settings': 'SETTINGS',
   'tab.hint': 'Tab / ⇧Tab',
-  'services.summary': '{count} services · alpha 0.1',
+  'services.summary': '{count} services',
   'terminal.tooSmall': 'Enlarge the terminal to at least 48 × 20. Ctrl+C exits.',
   'common.error': 'Error: {message}',
   'common.moreSteps': '+{count} more steps',
@@ -130,6 +130,8 @@ export const en = {
   'help.toggle': 'show or hide this help',
   'hint.copyOutput': 'copy output',
   'notice.outputCopied': 'Output copied',
+  'log.filters': '/ search · ^L {stream} · ^N {owner} · ^U clear · {query}',
+  'state.unhealthy': 'unhealthy',
 } as const;
 
 export type MessageKey = keyof typeof en;

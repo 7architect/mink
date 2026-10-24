@@ -1,13 +1,20 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 export default defineConfig({
   test: {
     include: ['tests/**/*.test.{ts,tsx}'],
-    testTimeout: 15000,
+    testTimeout: process.platform === 'win32' ? 60000 : 15000,
     hookTimeout: 30000,
     maxWorkers: 2,
+    expect: { poll: { timeout: process.platform === 'win32' ? 15000 : 2000 } },
     env: { LANG: 'en_US.UTF-8', LC_ALL: '' },
   },
   resolve: {
-    alias: { '@mink/core': new URL('./packages/core/src/index.ts', import.meta.url).pathname },
+    alias: {
+      '@yaroslavlky/mink-core': fileURLToPath(
+        new URL('./packages/core/src/index.ts', import.meta.url),
+      ),
+    },
+    dedupe: ['react', 'ink'],
   },
 });

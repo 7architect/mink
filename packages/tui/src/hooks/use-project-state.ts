@@ -5,7 +5,7 @@ import {
   type Mink,
   type ParameterValue,
   type Settings,
-} from '@mink/core';
+} from '@yaroslavlky/mink-core';
 export function useProjectState(mink: Mink, onError: (message: string) => void) {
   const [state, setState] = useState<LocalState>({ history: [], favorites: [], presets: {} });
   const [settings, setSettings] = useState<Settings>(defaultSettings);

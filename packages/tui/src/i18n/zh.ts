@@ -31,7 +31,7 @@ export const zh = {
   'tab.services': '服务',
   'tab.settings': '设置',
   'tab.hint': 'Tab / ⇧Tab',
-  'services.summary': '{count} 个服务 · alpha 0.1',
+  'services.summary': '{count} 个服务',
   'terminal.tooSmall': '请将终端至少放大到 48 × 20。Ctrl+C 退出。',
   'common.error': '错误：{message}',
   'common.moreSteps': '还有 {count} 个步骤',
@@ -131,4 +131,6 @@ export const zh = {
   'help.toggle': '显示或隐藏帮助',
   'hint.copyOutput': '复制输出',
   'notice.outputCopied': '输出已复制',
+  'log.filters': '/ 搜索 · ^L {stream} · ^N {owner} · ^U 清除 · {query}',
+  'state.unhealthy': '不健康',
 } satisfies Record<MessageKey, string>;

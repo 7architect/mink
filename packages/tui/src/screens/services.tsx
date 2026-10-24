@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
+import { LogInputContext } from '../components/log-input.js';
 import { Box, Text, useInput } from 'ink';
-import type { ServiceInfo } from '@mink/core';
+import type { ServiceInfo } from '@yaroslavlky/mink-core';
 import type { LogBuffer } from '../model/log-buffer.js';
 import { Panel, EmptyState, StatusBadge } from '../components/ui.js';
 import { LogView } from '../components/log-view.js';
@@ -28,9 +29,10 @@ export function ServicesScreen({
   const [index, setIndex] = useState(0),
     selected = Math.min(index, Math.max(0, services.length - 1)),
     service = services[selected];
+  const { editingRef } = useContext(LogInputContext);
   useInput(
     (input, key) => {
-      if (key.ctrl || key.meta) return;
+      if (editingRef.current || key.ctrl || key.meta) return;
       if (key.upArrow) setIndex((value) => Math.max(0, value - 1));
       if (key.downArrow) setIndex((value) => Math.min(services.length - 1, value + 1));
       if (!service) return;

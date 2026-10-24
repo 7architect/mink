@@ -31,7 +31,7 @@ export const fr = {
   'tab.services': 'SERVICES',
   'tab.settings': 'RÉGLAGES',
   'tab.hint': 'Tab / ⇧Tab',
-  'services.summary': '{count} services · alpha 0.1',
+  'services.summary': '{count} services',
   'terminal.tooSmall': 'Agrandissez le terminal à au moins 48 × 20. Ctrl+C quitte.',
   'common.error': 'Erreur : {message}',
   'common.moreSteps': '+{count} étapes',
@@ -132,4 +132,6 @@ export const fr = {
   'help.toggle': 'afficher ou masquer l’aide',
   'hint.copyOutput': 'copier la sortie',
   'notice.outputCopied': 'Sortie copiée',
+  'log.filters': '/ chercher · ^L {stream} · ^N {owner} · ^U effacer · {query}',
+  'state.unhealthy': 'dégradé',
 } satisfies Record<MessageKey, string>;

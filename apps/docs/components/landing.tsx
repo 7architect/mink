@@ -140,7 +140,7 @@ export function Landing({ locale }: { locale: Locale }) {
     '@type': 'SoftwareApplication',
     name: 'Mink',
     applicationCategory: 'DeveloperApplication',
-    operatingSystem: 'Linux, macOS',
+    operatingSystem: 'Windows, Linux, macOS',
     description: copy.meta.description,
     url: absoluteUrl(localeHref[locale]),
     downloadUrl: repoUrl,

@@ -5,6 +5,25 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
+export type Command = {
+  kind: "command";
+  name: string;
+  description?: string;
+  command?: string;
+  source?: Source;
+  depends_on?: string[];
+  params?: Params;
+  run?: Run;
+  presets?: {
+    [k: string]: {
+      [k: string]: string | number | boolean;
+    };
+  };
+  cwd?: string;
+  exec?: string;
+  args?: string[];
+  shell?: "auto" | "sh" | "bash" | "powershell" | "pwsh";
+} & Command1;
 export type Source = {
   package_script?: {
     manifest: string;
@@ -31,6 +50,9 @@ export type Parameter = {
     equals: string | number | boolean;
   };
 };
+export type Command1 = {
+  [k: string]: unknown;
+};
 export type PipelineParameter = Parameter;
 
 export interface MinkConfiguration {
@@ -42,22 +64,6 @@ export interface MinkConfiguration {
   commands: {
     [k: string]: Command | Pipeline;
   };
-}
-export interface Command {
-  kind: "command";
-  name: string;
-  description?: string;
-  command: string;
-  source?: Source;
-  depends_on?: string[];
-  params?: Params;
-  run?: Run;
-  presets?: {
-    [k: string]: {
-      [k: string]: string | number | boolean;
-    };
-  };
-  cwd?: string;
 }
 export interface Params {
   [k: string]: CommandParameter;
@@ -72,6 +78,24 @@ export interface Run {
     host?: string;
     url?: string;
     interval_ms?: number;
+  };
+  health?: {
+    type: "tcp" | "http";
+    port?: number;
+    host?: string;
+    url?: string;
+    interval_ms?: number;
+    failure_threshold?: number;
+  };
+  restart?: {
+    max_attempts: number;
+    delay_ms?: number;
+    backoff?: number;
+  };
+  retry?: {
+    attempts: number;
+    delay_ms?: number;
+    backoff?: number;
   };
 }
 export interface Pipeline {
@@ -90,6 +114,8 @@ export interface Pipeline {
       [k: string]: string | number | boolean;
     };
   };
+  fail_fast?: boolean;
+  timeout_ms?: number;
 }
 export interface Step {
   uses: string;

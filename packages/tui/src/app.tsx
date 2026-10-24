@@ -1,6 +1,12 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useApp, useInput } from 'ink';
-import { parameterFields, type Mink, type Settings } from '@mink/core';
+import {
+  parameterFields,
+  redactSecrets,
+  type Mink,
+  type Settings,
+  type RunResult,
+} from '@yaroslavlky/mink-core';
 import { copyText, openUrl } from './actions.js';
 import { clipboardCommand, type Values } from './model/commands.js';
 import { Frame, ScreenSlot } from './components/frame.js';
@@ -17,6 +23,7 @@ import { PresetScreen } from './screens/preset.js';
 import { SettingsScreen } from './screens/settings.js';
 import { applyTheme } from './theme.js';
 import { setLanguage, t } from './i18n.js';
+import { LogInputContext } from './components/log-input.js';
 interface Draft {
   id: string;
   values: Values;
@@ -43,8 +50,14 @@ export function MinkApp({
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [helpOpen, setHelpOpen] = useState(false),
+    [logEditing, setLogEditing] = useState(false),
     [sessionOverrides, setSessionOverrides] = useState(overrides);
   const commandsScreen = useRef<Screen>('palette');
+  const logEditingRef = useRef(false);
+  const changeLogEditing = useCallback((editing: boolean) => {
+    logEditingRef.current = editing;
+    setLogEditing(editing);
+  }, []);
   const project = useProjectState(mink, setError);
   const settings = { ...project.settings, ...sessionOverrides };
   applyTheme(settings.theme);
@@ -69,6 +82,7 @@ export function MinkApp({
     }
   }
   function navigate(next: Screen) {
+    changeLogEditing(false);
     setError('');
     setNotice('');
     setHelpOpen(false);
@@ -84,14 +98,21 @@ export function MinkApp({
     setDraft((previous) => ({ id, values: {}, revision: previous.revision + 1 }));
     navigate(parameterFields(config.commands[id]).length ? 'form' : 'preview');
   }
-  function run(target: Pick<Draft, 'id' | 'values'>) {
+  function run(target: Pick<Draft, 'id' | 'values'>, retryFailed?: RunResult) {
     navigate('output');
     void perform(async () => {
-      await session.start(target.id, target.values);
+      await session.start(target.id, target.values, retryFailed);
       await project.reload();
     });
   }
   useInput((input, key) => {
+    if (
+      logEditingRef.current &&
+      ['output', 'services'].includes(screen) &&
+      !key.tab &&
+      !(key.ctrl && input === 'c')
+    )
+      return;
     if (helpOpen && (input === '?' || key.escape)) {
       setHelpOpen(false);
       return;
@@ -142,172 +163,188 @@ export function MinkApp({
     }
   }
   return (
-    <Frame
-      repository={config.repository?.name ?? 'repository control center'}
-      directory={mink.directory}
-      screen={screen}
-      {...size}
-      busy={busy}
-      serviceCount={
-        session.services.filter((service) => ['starting', 'ready'].includes(service.state)).length
-      }
-      error={error}
-      notice={notice}
-      helpOpen={helpOpen}
+    <LogInputContext.Provider
+      value={{ editing: logEditing, editingRef: logEditingRef, setEditing: changeLogEditing }}
     >
-      <ScreenSlot active={at('palette')}>
-        <PaletteScreen
-          active={at('palette')}
-          matches={matches}
-          query={query}
-          onQuery={setQuery}
-          state={project.state}
-          viewport={viewport}
-          onChoose={choose}
-          onFavorite={(id) => {
-            void perform(() => project.favorite(id));
-          }}
-        />
-      </ScreenSlot>
-      {entry && (
-        <ScreenSlot active={at('form')}>
-          <ParametersScreen
-            key={`${draft.id}:${draft.revision}`}
-            id={draft.id}
-            entry={entry}
-            active={at('form')}
-            initial={draft.values}
+      <Frame
+        repository={config.repository?.name ?? 'repository control center'}
+        directory={mink.directory}
+        screen={screen}
+        {...size}
+        busy={busy}
+        serviceCount={
+          session.services.filter((service) =>
+            ['starting', 'ready', 'unhealthy'].includes(service.state),
+          ).length
+        }
+        error={error}
+        notice={notice}
+        helpOpen={helpOpen}
+      >
+        <ScreenSlot active={at('palette')}>
+          <PaletteScreen
+            active={at('palette')}
+            matches={matches}
+            query={query}
+            onQuery={setQuery}
+            state={project.state}
             viewport={viewport}
-            onComplete={(values) => {
-              setDraft({ ...draft, values });
-              navigate('preview');
+            onChoose={choose}
+            onFavorite={(id) => {
+              void perform(() => project.favorite(id));
             }}
           />
         </ScreenSlot>
-      )}
-      {entry && (
-        <ScreenSlot active={at('preview')}>
-          <PreviewScreen
-            key={`${draft.id}:${draft.revision}`}
-            active={at('preview')}
-            id={draft.id}
-            entry={entry}
-            {...preview}
-            viewport={viewport}
-            onRun={() => run(draft)}
-            onEdit={() => {
-              setDraft((previous) => ({ ...previous, revision: previous.revision + 1 }));
-              navigate(parameterFields(entry, draft.values).length ? 'form' : 'preview');
-            }}
-            onPreset={() => navigate('preset')}
-            onSave={() => navigate('save')}
-            onCopy={() => {
-              void perform(async () => {
-                if (
-                  Object.entries(entry.params ?? {}).some(
-                    ([name, parameter]) =>
-                      parameter.type === 'secret' && Object.hasOwn(draft.values, name),
-                  )
-                )
-                  throw new Error(t('error.secretCopy'));
-                await copyText(clipboardCommand(mink.prepare(draft.id, draft.values)));
-                setNotice(t('notice.copied'));
-              });
-            }}
-            onForeground={
-              onForeground
-                ? () => {
-                    if (busy) return;
-                    mink.plan(draft.id, draft.values);
-                    onForeground(draft.id, draft.values);
-                    exit();
-                  }
-                : undefined
-            }
-          />
-        </ScreenSlot>
-      )}
-      <ScreenSlot active={at('output')}>
-        <OutputScreen
-          active={at('output')}
-          session={session}
-          viewport={viewport}
-          onRerun={() => {
-            if (session.invocation)
-              run({ id: session.invocation.id, values: session.invocation.values });
-          }}
-          onCopy={() => {
-            const lines = session.logs.lines(session.runId ? { runId: session.runId } : undefined);
-            if (!lines.length) return;
-            void perform(async () => {
-              await copyText(lines.map((line) => `[${line.id}] ${line.text}`).join('\n'));
-              setNotice(t('notice.outputCopied'));
-            });
-          }}
-        />
-      </ScreenSlot>
-      <ScreenSlot active={at('settings')}>
-        <SettingsScreen
-          active={at('settings')}
-          settings={settings}
-          viewport={viewport}
-          onChange={(change) => {
-            setSessionOverrides((current) => {
-              const next = { ...current };
-              for (const key of Object.keys(change) as (keyof Settings)[]) delete next[key];
-              return next;
-            });
-            void perform(() => project.saveSettings(change));
-          }}
-          onClose={() => navigate('palette')}
-        />
-      </ScreenSlot>
-      <ScreenSlot active={at('services')}>
-        <ServicesScreen
-          active={at('services')}
-          services={session.services}
-          logs={session.logs}
-          viewport={viewport}
-          onStop={(instance, force) => {
-            void perform(() => session.stop(instance, force));
-          }}
-          onRestart={(instance) => {
-            void perform(() => session.restart(instance));
-          }}
-          onOpen={(url) => {
-            void perform(() => openUrl(url));
-          }}
-        />
-      </ScreenSlot>
-      {entry &&
-        (['preset', 'save'] as const).map((mode) => (
-          <ScreenSlot key={mode} active={at(mode)}>
-            <PresetScreen
-              key={`${draft.id}:${draft.revision}:${mode}`}
-              active={at(mode)}
-              saving={mode === 'save'}
-              names={Object.keys({ ...entry.presets, ...project.state.presets[draft.id] })}
+        {entry && (
+          <ScreenSlot active={at('form')}>
+            <ParametersScreen
+              key={`${draft.id}:${draft.revision}`}
+              id={draft.id}
+              entry={entry}
+              active={at('form')}
+              initial={draft.values}
               viewport={viewport}
-              onSubmit={(name) =>
-                perform(async () => {
-                  if (mode === 'save') {
-                    await project.savePreset(draft.id, name, draft.values);
-                    navigate('preview');
-                    setNotice(t('notice.presetSaved'));
-                  } else {
-                    const values = await project.loadPreset(draft.id, name);
-                    setDraft((previous) => ({
-                      ...previous,
-                      values,
-                      revision: previous.revision + 1,
-                    }));
-                    navigate(parameterFields(entry, values).length ? 'form' : 'preview');
-                  }
-                })
+              onComplete={(values) => {
+                setDraft({ ...draft, values });
+                navigate('preview');
+              }}
+            />
+          </ScreenSlot>
+        )}
+        {entry && (
+          <ScreenSlot active={at('preview')}>
+            <PreviewScreen
+              key={`${draft.id}:${draft.revision}`}
+              active={at('preview')}
+              id={draft.id}
+              entry={entry}
+              {...preview}
+              viewport={viewport}
+              onRun={() => run(draft)}
+              onEdit={() => {
+                setDraft((previous) => ({ ...previous, revision: previous.revision + 1 }));
+                navigate(parameterFields(entry, draft.values).length ? 'form' : 'preview');
+              }}
+              onPreset={() => navigate('preset')}
+              onSave={() => navigate('save')}
+              onCopy={() => {
+                void perform(async () => {
+                  if (
+                    Object.entries(entry.params ?? {}).some(
+                      ([name, parameter]) =>
+                        parameter.type === 'secret' && Object.hasOwn(draft.values, name),
+                    )
+                  )
+                    throw new Error(t('error.secretCopy'));
+                  await copyText(clipboardCommand(mink.prepare(draft.id, draft.values)));
+                  setNotice(t('notice.copied'));
+                });
+              }}
+              onForeground={
+                onForeground
+                  ? () => {
+                      if (busy) return;
+                      mink.plan(draft.id, draft.values);
+                      onForeground(draft.id, draft.values);
+                      exit();
+                    }
+                  : undefined
               }
             />
           </ScreenSlot>
-        ))}
-    </Frame>
+        )}
+        <ScreenSlot active={at('output')}>
+          <OutputScreen
+            active={at('output')}
+            session={session}
+            viewport={viewport}
+            onRerun={() => {
+              if (session.invocation)
+                run({ id: session.invocation.id, values: session.invocation.values });
+            }}
+            onRetryFailed={() => {
+              const invocation = session.invocation;
+              if (invocation?.result)
+                run({ id: invocation.id, values: invocation.values }, invocation.result);
+            }}
+            onCopy={() => {
+              const lines = session.logs.lines(
+                session.runId ? { runId: session.runId } : undefined,
+              );
+              if (!lines.length) return;
+              void perform(async () => {
+                const text = lines.map((line) => `[${line.id}] ${line.text}`).join('\n');
+                await copyText(
+                  session.invocation ? redactSecrets(text, session.invocation.plan) : text,
+                );
+                setNotice(t('notice.outputCopied'));
+              });
+            }}
+          />
+        </ScreenSlot>
+        <ScreenSlot active={at('settings')}>
+          <SettingsScreen
+            active={at('settings')}
+            settings={settings}
+            viewport={viewport}
+            onChange={(change) => {
+              setSessionOverrides((current) => {
+                const next = { ...current };
+                for (const key of Object.keys(change) as (keyof Settings)[]) delete next[key];
+                return next;
+              });
+              void perform(() => project.saveSettings(change));
+            }}
+            onClose={() => navigate('palette')}
+          />
+        </ScreenSlot>
+        <ScreenSlot active={at('services')}>
+          <ServicesScreen
+            active={at('services')}
+            services={session.services}
+            logs={session.logs}
+            viewport={viewport}
+            onStop={(instance, force) => {
+              void perform(() => session.stop(instance, force));
+            }}
+            onRestart={(instance) => {
+              void perform(() => session.restart(instance));
+            }}
+            onOpen={(url) => {
+              void perform(() => openUrl(url));
+            }}
+          />
+        </ScreenSlot>
+        {entry &&
+          (['preset', 'save'] as const).map((mode) => (
+            <ScreenSlot key={mode} active={at(mode)}>
+              <PresetScreen
+                key={`${draft.id}:${draft.revision}:${mode}`}
+                active={at(mode)}
+                saving={mode === 'save'}
+                names={Object.keys({ ...entry.presets, ...project.state.presets[draft.id] })}
+                viewport={viewport}
+                onSubmit={(name) =>
+                  perform(async () => {
+                    if (mode === 'save') {
+                      await project.savePreset(draft.id, name, draft.values);
+                      navigate('preview');
+                      setNotice(t('notice.presetSaved'));
+                    } else {
+                      const values = await project.loadPreset(draft.id, name);
+                      setDraft((previous) => ({
+                        ...previous,
+                        values,
+                        revision: previous.revision + 1,
+                      }));
+                      navigate(parameterFields(entry, values).length ? 'form' : 'preview');
+                    }
+                  })
+                }
+              />
+            </ScreenSlot>
+          ))}
+      </Frame>
+    </LogInputContext.Provider>
   );
 }
