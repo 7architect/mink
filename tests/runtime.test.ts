@@ -149,3 +149,29 @@ it('forwards pipeline secrets only through secret inputs', async () => {
   });
   expect((await m.run('p', { token: 'hidden' })).state).toBe('succeeded');
 });
+
+it('waits for invocation history persistence when disposing after process exit', async () => {
+  const m = await project({ done: command('') });
+  let finished!: () => void;
+  const processFinished = new Promise<void>((resolve) => {
+    finished = resolve;
+  });
+  let settled = false;
+  const running = m.run(
+    'done',
+    {},
+    {
+      onEvent(event) {
+        if (event.type === 'finish') finished();
+      },
+    },
+  );
+  void running.then(() => {
+    settled = true;
+  });
+  await processFinished;
+  await m.dispose();
+  expect(settled).toBe(true);
+  expect((await m.state()).history[0]?.id).toBe('done');
+  await running;
+});
