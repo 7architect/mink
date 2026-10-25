@@ -21,6 +21,8 @@ it('searches logs without firing rerun shortcuts while editing the query', async
   ui.stdin.write('\r');
   await expect.poll(ui.lastFrame).toContain('ERROR: detail');
   await expect.poll(ui.lastFrame).toContain('Exit: 0');
+  // Ink installs input listeners in passive effects after rendering the frame.
+  await new Promise((resolve) => setTimeout(resolve, 50));
   ui.stdin.write('/');
   await expect.poll(ui.lastFrame).not.toContain('/ search');
   ui.stdin.write('r');
@@ -55,6 +57,8 @@ it('filters the palette, edits parameters, previews and runs with output', async
   await expect.poll(ui.lastFrame).toContain("NAME='Ada'");
   ui.stdin.write('\r');
   await expect.poll(ui.lastFrame).toContain('Exit: 0');
+  // Ink installs input listeners in passive effects after rendering the frame.
+  await new Promise((resolve) => setTimeout(resolve, 50));
   expect(ui.lastFrame()).toContain('Hello Ada');
   ui.stdin.write('\u001b');
   await expect.poll(ui.lastFrame).toContain('Search');
@@ -339,6 +343,8 @@ it('reruns the last invocation after inspecting a different command', async () =
   await expect.poll(ui.lastFrame).toContain('REVIEW BEFORE EXECUTION');
   ui.stdin.write('\r');
   await expect.poll(ui.lastFrame).toContain('Exit: 0');
+  // Ink installs input listeners in passive effects after rendering the frame.
+  await new Promise((resolve) => setTimeout(resolve, 50));
   ui.stdin.write('\u0010');
   await expect.poll(ui.lastFrame).toContain('Search');
   ui.stdin.write('\u0015');
@@ -352,6 +358,8 @@ it('reruns the last invocation after inspecting a different command', async () =
   ui.stdin.write('r');
   await expect.poll(async () => readFile(join(m.directory, 'runs'), 'utf8')).toBe('aa');
   await expect.poll(ui.lastFrame).toContain('Exit: 0');
+  // Ink installs input listeners in passive effects after rendering the frame.
+  await new Promise((resolve) => setTimeout(resolve, 50));
 });
 
 it('switches theme and language from settings', async () => {
