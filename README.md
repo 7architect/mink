@@ -1,61 +1,64 @@
 <div align="center">
-  <img src="assets/logo-rounded.png" alt="Mink — логотип с норкой" width="112" height="112">
+  <img src="assets/logo-rounded.png" alt="Mink logo" width="112" height="112">
 
 # Mink
 
-**Пульт управления репозиторием прямо в терминале.**
+**Your repository's command centre, in the terminal.**
 
-Находите команды, заполняйте параметры, запускайте пайплайны и управляйте локальными сервисами из одной палитры.
+Find commands, fill in parameters, run pipelines, and manage local services from one palette.
+
+[English](README.md) · [Русский](https://yaroslavlky.github.io/mink/ru/) · [Deutsch](https://yaroslavlky.github.io/mink/de/) · [Français](https://yaroslavlky.github.io/mink/fr/) · [中文](https://yaroslavlky.github.io/mink/zh/)
+
+<a href="https://yaroslavlky.github.io/mink/"><img src="https://raw.githubusercontent.com/yaroslavlky/mink/main/apps/docs/public/og.png" alt="Mink — terminal command palette" width="720"></a>
 </div>
 
-Mink — терминальный пульт для **Windows, Linux и macOS, Node.js 24+**. На Windows требуется Windows PowerShell. Лицензия MIT. Ветка готовит первый релиз `@yaroslavlky/mink`; до публикации используйте сборку из репозитория.
+Mink is a terminal command centre for **Windows, Linux, and macOS** on **Node.js 24+**. It discovers the scripts and task files already in a repository, then gives them typed inputs, previews, execution plans, logs, and service controls. Windows uses Windows PowerShell and Job Objects for process ownership. Licensed under MIT.
 
-## Установка из npm
+## Install
 
-После первой публикации пакетов:
+Mink is published to npm and works with npm, pnpm, Bun, and Yarn. Install it globally with your preferred package manager:
 
 ```sh
-npm i -g @yaroslavlky/mink
-# или: pnpm add -g @yaroslavlky/mink
+npm install --global @yaroslavlky/mink
+# pnpm add --global @yaroslavlky/mink
+# bun add --global @yaroslavlky/mink
+# yarn global add @yaroslavlky/mink
+
 mink doctor
 mink
 ```
 
-Команда остаётся `mink`. Имя пакета без scope занято другим проектом. [Настройка релизов и npm Trusted Publishing](docs/releasing.md).
+The command is always `mink`. The unscoped `mink` package belongs to another project.
 
-## Быстрый старт
-
-```sh
-corepack enable
-corepack prepare pnpm@11.28.0 --activate
-pnpm install
-pnpm build:packages
-node packages/cli/dist/index.js ui --config examples/demo/mink.yml --no-discovery
-```
-
-[Демонстрационный проект](examples/demo/mink.yml) работает без внешних зависимостей: greeting с параметрами, параллельные проверки, вложенный pipeline и HTTP-сервис. Для запуска без TUI:
+## Start in an existing repository
 
 ```sh
-node packages/cli/dist/index.js run verify --config examples/demo/mink.yml --no-discovery
-node packages/cli/dist/index.js run greet --param person=Ada --config examples/demo/mink.yml
+cd your-repository
+mink init
+mink
 ```
 
-В другом проекте вызовите CLI по абсолютному пути. Без `mink.yml` Mink обнаруживает scripts ближайшего `package.json`; `mink init` создаёт YAML и не перезаписывает существующий файл.
+`mink init` creates `mink.yml` without overwriting an existing configuration. Even without a file, Mink discovers scripts in the nearest `package.json`, npm/pnpm/yarn workspaces, `scripts/*.sh`, Makefiles, Taskfiles, and Compose files.
 
-## Возможности
+For a complete guide, visit [the documentation](https://yaroslavlky.github.io/mink/quickstart/).
 
-- CLI: `ui`, `list`, `check`, `run`, `init`, `preset`, `favorite`, `doctor`, `plan`, `watch`.
-- Палитра с нечётким поиском, избранным и историей; формы, предпросмотр, копирование команды и foreground stdin.
-- YAML + JSON Schema и проверка ссылок/циклов до выполнения; импорт package scripts, базовых npm/pnpm/yarn workspaces, `scripts/*.sh`, Makefile, Taskfile и Compose.
-- Параметры `string`, `number`, `boolean`, `select`, `port`, `path`, `secret`, defaults, условия и пресеты.
-- DAG-пайплайны, вложенные пайплайны, типизированные `with`, однократные prerequisites и общий лимит процессов для корневого запуска.
-- Потоковый stdout/stderr, exit code, длительность, timeout и cancellation с очисткой POSIX process groups или Windows Job Objects.
-- Сервисы с process/TCP/HTTP readiness, непрерывным health-check и ограниченным restart; просмотр вывода, stop/restart/kill и открытие HTTP health URL.
-- Локальное состояние с блокировкой и атомарной записью; параметры и вывод не сохраняются в истории.
+## Give this prompt to an agent
 
-Tab переключает вкладки Commands → Output → Services → Settings, Shift+Tab — обратно. В настройках (Ctrl+G) выбираются темы и язык интерфейса: English, Русский, Deutsch, Français, 中文. Поиск и незавершённый ввод сохраняются. В палитре: ↑↓ выбрать, Enter настроить/запустить, Ctrl+F избранное, Ctrl+S сервисы, Esc назад, Ctrl+C отменить/выйти. В форме: Ctrl+B — предыдущий параметр. В preview: `e` изменить, `p` загрузить preset, `s` сохранить, `c` копировать; Shift+Enter — запустить с stdin вне Ink.
+```text
+Explore this repository before changing anything. Identify its package manager, scripts, Makefile/Taskfile/Compose services, test and build commands, and local development workflow. Then create a portable mink.yml for Mink that gives these commands clear names, typed parameters, sensible presets, dependencies, and readiness checks for local services. Use direct exec + args for portable commands whenever possible. Do not put secrets in the file; reference them through parameters or environment variables. Validate the configuration with `mink check --no-discovery`, show the execution plan with `mink plan <command> --json`, and explain what you created.
+```
 
-## Конфигурация
+## What it does
+
+- A CLI with `ui`, `list`, `check`, `run`, `init`, `preset`, `favorite`, `doctor`, `plan`, and `watch`.
+- Fuzzy command search, favourites, history, typed forms, command previews, and foreground stdin.
+- YAML and JSON Schema validation before execution, with cycle and reference checks.
+- Typed `string`, `number`, `boolean`, `select`, `port`, `path`, and `secret` parameters, defaults, conditions, and presets.
+- Nested DAG pipelines with shared prerequisites, bounded concurrency, retries, timeouts, and failed-branch reruns.
+- Streamed stdout and stderr, cancellation, timeouts, JSONL logs with secret redaction, and POSIX process groups or Windows Job Objects.
+- Services with process/TCP/HTTP readiness, continuous health checks, bounded restarts, logs, stop/restart/kill, and health URLs.
+
+## Example configuration
 
 ```yaml
 version: 1
@@ -77,42 +80,18 @@ commands:
       greeting: { uses: greet, with: { person: Mink } }
 ```
 
-YAML перекрывает обнаруженные команды с тем же ID. `--no-discovery` отключает импорт. Переносимые команды задавайте через `exec` и `args`: параметры передаются напрямую, без shell. `command` остаётся доверенным shell-кодом и использует `/bin/sh` на Linux/macOS или Windows PowerShell на Windows; `shell` можно выбрать явно. Секреты вводятся в маскированной форме или через `--secret-env token=ENV_NAME`, исключены из presets/clipboard/history. Вывод дочерней программы может содержать секреты и не редактируется автоматически.
+Use `exec` and `args` for portable commands: arguments are passed directly, without a shell. `command` remains available for trusted shell code and uses `/bin/sh` on Linux/macOS or Windows PowerShell on Windows.
 
-## Документация и разработка
-
-В корне есть [mink.yml](mink.yml) для работы над самим Mink. После сборки можно открыть
-палитру с описанными командами, запустить проверки или выбрать набор тестов:
+## Develop from a checkout
 
 ```sh
-node packages/cli/dist/index.js ui --no-discovery
-node packages/cli/dist/index.js run check --no-discovery
-node packages/cli/dist/index.js run test --preset tui --no-discovery
-node packages/cli/dist/index.js run verify --no-discovery
-```
-
-`check` проверяет схему, линтер, форматирование, типы и тесты, разделяя одну сборку
-runtime-пакетов между задачами. `verify` дополнительно проверяет установку пакетов и собирает
-документацию. `dev` запускает Vitest watch и сайт документации на `http://127.0.0.1:4319`;
-сервисами можно управлять через Ctrl+S. `--no-discovery` оставляет только описанный каталог;
-без этого флага также доступны автоматически найденные workspace-скрипты.
-
-```sh
-pnpm docs:dev       # сайт Nextra на localhost:3000
-pnpm docs:build     # static export + Pagefind → apps/docs/out
-pnpm og:generate    # Chromium + WebGL → apps/docs/public/og.png
+corepack enable
+corepack prepare pnpm@11.28.0 --activate
+pnpm install
 pnpm build:packages
-pnpm check          # ESLint + Prettier + TypeScript + Vitest
-pnpm schema:check
-pnpm test:pack       # установка tarballs в отдельный временный проект
+pnpm check
+pnpm test:pack
+pnpm docs:build
 ```
 
-[Содержимое документации](apps/docs/content) включает руководство, CLI, конфигурацию, параметры, discovery, пайплайны, сервисы, состояние, безопасность и [архитектуру](apps/docs/content/architecture.mdx). Главная страница сайта — отдельный лендинг с локализованными версиями `/ru/`, `/de/`, `/fr/` и `/zh/`, документация начинается с `/overview/`. Сайт автоматически публикуется в GitHub Pages при обновлении `main`. Перед публикацией задайте `NEXT_PUBLIC_SITE_URL`, чтобы canonical и Open Graph ссылались на реальный домен. `og:generate` запускайте после `docs:build`: скрипт снимает карточку из собранного `og-card` через Chromium с аппаратным WebGL.
-
-Ядро в `packages/core` не зависит от React/Ink. CLI и TUI используют общий preflight, планировщик и runtime. Подробности API — в [README ядра](packages/core/README.md).
-
-Дополнительно: `mink plan verify --json` и `mink run verify --dry-run` показывают план без выполнения и скрывают секреты; `mink doctor` проверяет окружение, конфигурацию, инструменты, порты и хранилище. `mink watch test --path src --mode restart` перезапускает задачу после изменений и ждёт завершения отменённого запуска. В логах: `/` поиск, Ctrl+L поток, Ctrl+N процесс, Ctrl+U сброс. `mink run verify --log-file run.jsonl` сохраняет новый JSONL-файл и маскирует известные секреты, включая разделённые между чанками. В Output клавиша `f` повторяет неуспешные ветки с prerequisites.
-
-Для задач доступны `run.retry`, для сервисов — `run.health` и `run.restart`, для пайплайнов — `fail_fast` и общий `timeout_ms`. Примеры и семантика: [конфигурация](docs/configuration.md).
-
-Ограничения alpha: PTY-эмуляция, сохранение сервисов между сессиями, плагины, inheritance и remote/Git integrations отложены. `ready` проверяет запуск; необязательный `health` продолжает проверки после него; лимит `max_parallel` корня покрывает задачи и запуск сервисов, готовые сервисы продолжают работать за пределами этого бюджета.
+The [demo project](examples/demo/mink.yml) runs without external dependencies. The full release and trusted-publishing setup is in [docs/releasing.md](docs/releasing.md).

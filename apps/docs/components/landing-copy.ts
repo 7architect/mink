@@ -62,7 +62,9 @@ export interface LandingCopy {
     description: string;
     primaryCta: string;
     secondaryCta: string;
-    installThen: string;
+    agentCta: string;
+    agentCopied: string;
+    installLead: string;
     imageAlt: string;
   };
   features: {
@@ -129,7 +131,9 @@ export const landingCopy: Record<Locale, LandingCopy> = {
         'Mink finds the package scripts, Make targets, and shell files already in your repository. Run them from one terminal palette with typed parameters and a preview of what will execute.',
       primaryCta: 'Get Mink running',
       secondaryCta: 'See how it works',
-      installThen: 'then',
+      agentCta: 'Copy agent prompt',
+      agentCopied: 'Prompt copied',
+      installLead: 'Install once, then run',
       imageAlt: 'Acme Checkout in Mink with two services running',
     },
     features: {
@@ -289,7 +293,9 @@ export const landingCopy: Record<Locale, LandingCopy> = {
         'Mink находит package-скрипты, цели Make и shell-файлы, которые уже есть в вашем репозитории. Запускайте их из одной терминальной палитры: с типизированными параметрами и предпросмотром команды.',
       primaryCta: 'Запустить Mink',
       secondaryCta: 'Как это работает',
-      installThen: 'затем',
+      agentCta: 'Скопировать промпт для агента',
+      agentCopied: 'Промпт скопирован',
+      installLead: 'Установите один раз, затем запустите',
       imageAlt: 'Acme Checkout в Mink с двумя запущенными сервисами',
     },
     features: {
@@ -450,7 +456,9 @@ export const landingCopy: Record<Locale, LandingCopy> = {
         'Mink findet die package-Skripte, Make-Ziele und Shell-Dateien, die bereits in deinem Repository liegen. Starte sie aus einer Terminal-Palette, mit typisierten Parametern und einer Vorschau, was ausgeführt wird.',
       primaryCta: 'Mink starten',
       secondaryCta: 'So funktioniert es',
-      installThen: 'dann',
+      agentCta: 'Agenten-Prompt kopieren',
+      agentCopied: 'Prompt kopiert',
+      installLead: 'Einmal installieren, dann starten:',
       imageAlt: 'Acme Checkout in Mink mit zwei laufenden Services',
     },
     features: {
@@ -612,7 +620,9 @@ export const landingCopy: Record<Locale, LandingCopy> = {
         'Mink trouve les scripts package, les cibles Make et les fichiers shell déjà présents dans votre dépôt. Lancez-les depuis une seule palette de terminal, avec des paramètres typés et un aperçu de ce qui va s’exécuter.',
       primaryCta: 'Lancer Mink',
       secondaryCta: 'Voir comment ça marche',
-      installThen: 'puis',
+      agentCta: 'Copier le prompt agent',
+      agentCopied: 'Prompt copié',
+      installLead: 'Installez une fois, puis lancez',
       imageAlt: 'Acme Checkout dans Mink avec deux services lancés',
     },
     features: {
@@ -772,7 +782,9 @@ export const landingCopy: Record<Locale, LandingCopy> = {
         'Mink 会找出仓库里已有的 package 脚本、Make 目标和 shell 文件。你可以在一个终端面板里运行它们，填写带类型的参数，并先看清将要执行的命令。',
       primaryCta: '运行 Mink',
       secondaryCta: '了解工作方式',
-      installThen: '然后',
+      agentCta: '复制 Agent 提示词',
+      agentCopied: '提示词已复制',
+      installLead: '安装一次，然后运行',
       imageAlt: 'Mink 中运行着两个服务的 Acme Checkout',
     },
     features: {

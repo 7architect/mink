@@ -1,7 +1,7 @@
 'use client';
 
-import { ArrowRight } from 'lucide-react';
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { ArrowRight, Check, Copy } from 'lucide-react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   DiscoverVisual,
   KeysVisual,
@@ -45,6 +45,31 @@ import { absoluteUrl, repoUrl } from '@/lib/seo';
 import { withBasePath } from '@/lib/base-path';
 
 const repo = 'https://github.com/yaroslavlky/mink';
+
+const agentPrompt = `Explore this repository before changing anything. Identify its package manager, scripts, Makefile/Taskfile/Compose services, test and build commands, and local development workflow. Then create a portable mink.yml for Mink that gives these commands clear names, typed parameters, sensible presets, dependencies, and readiness checks for local services. Use direct exec + args for portable commands whenever possible. Do not put secrets in the file; reference them through parameters or environment variables. Validate the configuration with \`mink check --no-discovery\`, show the execution plan with \`mink plan <command> --json\`, and explain what you created.`;
+
+const installers = [
+  {
+    name: 'npm',
+    command: 'npm install --global @yaroslavlky/mink',
+    logo: 'https://cdn.simpleicons.org/npm/CB3837',
+  },
+  {
+    name: 'pnpm',
+    command: 'pnpm add --global @yaroslavlky/mink',
+    logo: 'https://cdn.simpleicons.org/pnpm/F69220',
+  },
+  {
+    name: 'Bun',
+    command: 'bun add --global @yaroslavlky/mink',
+    logo: 'https://cdn.simpleicons.org/bun/FBF0DF',
+  },
+  {
+    name: 'Yarn',
+    command: 'yarn global add @yaroslavlky/mink',
+    logo: 'https://cdn.simpleicons.org/yarn/2C8EBB',
+  },
+];
 
 const painLines = [
   'npm run lint:fix',
@@ -106,9 +131,31 @@ function TerminalMockup({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+function InstallerCards() {
+  return (
+    <div className="grid w-full max-w-xl grid-cols-2 gap-2 sm:grid-cols-4">
+      {installers.map((installer) => (
+        <div
+          key={installer.name}
+          className="rounded-xl border border-border bg-background/55 px-3 py-2.5 backdrop-blur"
+        >
+          <div className="flex items-center gap-2">
+            <img src={installer.logo} alt="" className="size-4" />
+            <span className="text-sm font-medium">{installer.name}</span>
+          </div>
+          <code className="mt-2 block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10px] text-muted-foreground">
+            {installer.command}
+          </code>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function Landing({ locale }: { locale: Locale }) {
   const copy = landingCopy[locale];
   const rootRef = useRef<HTMLDivElement>(null);
+  const [promptCopied, setPromptCopied] = useState(false);
   useLandingAnimations(rootRef);
 
   useEffect(() => {
@@ -134,6 +181,12 @@ export function Landing({ locale }: { locale: Locale }) {
     question: item.question,
     answer: item.answer,
   }));
+
+  async function copyAgentPrompt() {
+    await navigator.clipboard.writeText(agentPrompt);
+    setPromptCopied(true);
+    window.setTimeout(() => setPromptCopied(false), 1800);
+  }
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -283,15 +336,21 @@ export function Landing({ locale }: { locale: Locale }) {
               >
                 <a href={withBasePath('/overview/')}>{copy.hero.secondaryCta}</a>
               </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="rounded-full border-border bg-background/40 px-5"
+                onClick={() => void copyAgentPrompt()}
+              >
+                {promptCopied ? <Check /> : <Copy />}
+                {promptCopied ? copy.hero.agentCopied : copy.hero.agentCta}
+              </Button>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <code className="rounded-md border border-border bg-background/60 px-2.5 py-1.5 font-mono text-xs text-foreground">
-                pnpm build:packages
-              </code>
-              <span>{copy.hero.installThen}</span>
-              <code className="rounded-md border border-border bg-background/60 px-2.5 py-1.5 font-mono text-xs text-foreground">
-                node packages/cli/dist/index.js ui
-              </code>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                {copy.hero.installLead} <code className="font-mono text-foreground">mink</code>.
+              </p>
+              <InstallerCards />
             </div>
           </div>
           <div data-gsap="hero-visual">
