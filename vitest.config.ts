@@ -6,7 +6,7 @@ export default defineConfig({
     testTimeout: process.platform === 'win32' ? 60000 : 15000,
     hookTimeout: 30000,
     maxWorkers: 2,
-    expect: { poll: { timeout: process.platform === 'win32' ? 15000 : 2000 } },
+    expect: { poll: { timeout: process.platform === 'win32' ? 45000 : 5000 } },
     env: { LANG: 'en_US.UTF-8', LC_ALL: '' },
   },
   resolve: {

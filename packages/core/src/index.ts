@@ -67,6 +67,7 @@ export async function createMink(options: MinkOptions = {}): Promise<Mink> {
     if (!Object.hasOwn(loaded.config.commands, id)) throw new Error(`Unknown command: ${id}`);
     return loaded.config.commands[id];
   };
+  const pendingRuns = new Set<Promise<RunResult>>();
   return {
     configFile: loaded.file,
     directory: loaded.directory,
@@ -79,29 +80,37 @@ export async function createMink(options: MinkOptions = {}): Promise<Mink> {
       return prepareEntry(entry, resolveValues(entry, values, id), loaded.directory);
     },
     plan: (id, values = {}) => planExecution(loaded.config, loaded.directory, id, values),
-    async run(id, values = {}, runOptions = {}) {
-      const fullPlan = planExecution(loaded.config, loaded.directory, id, values);
-      const plan = runOptions.retryFailed
-        ? planFailedBranches(fullPlan, runOptions.retryFailed)
-        : fullPlan;
-      const executed = await session.run(plan, runOptions);
-      const result = runOptions.retryFailed
-        ? mergeRetryResult(runOptions.retryFailed, executed)
-        : executed;
-      try {
-        await store.update((state) => {
-          state.history.unshift({
-            id,
-            time: new Date().toISOString(),
-            state: result.state,
-            durationMs: result.durationMs,
+    run(id, values = {}, runOptions = {}) {
+      const pending = (async () => {
+        const fullPlan = planExecution(loaded.config, loaded.directory, id, values);
+        const plan = runOptions.retryFailed
+          ? planFailedBranches(fullPlan, runOptions.retryFailed)
+          : fullPlan;
+        const executed = await session.run(plan, runOptions);
+        const result = runOptions.retryFailed
+          ? mergeRetryResult(runOptions.retryFailed, executed)
+          : executed;
+        try {
+          await store.update((state) => {
+            state.history.unshift({
+              id,
+              time: new Date().toISOString(),
+              state: result.state,
+              durationMs: result.durationMs,
+            });
+            state.history = state.history.slice(0, 100);
           });
-          state.history = state.history.slice(0, 100);
-        });
-      } catch (error) {
-        logger.warn('Could not save history', error);
-      }
-      return result;
+        } catch (error) {
+          logger.warn('Could not save history', error);
+        }
+        return result;
+      })();
+      pendingRuns.add(pending);
+      void pending.then(
+        () => pendingRuns.delete(pending),
+        () => pendingRuns.delete(pending),
+      );
+      return pending;
     },
     subscribe: (listener) => session.subscribe(listener),
     services: () =>
@@ -115,7 +124,10 @@ export async function createMink(options: MinkOptions = {}): Promise<Mink> {
       })),
     stopService: (id, force) => session.stop(id, force),
     restartService: (id) => session.restart(id),
-    dispose: () => session.dispose(),
+    async dispose() {
+      await session.dispose();
+      await Promise.allSettled([...pendingRuns]);
+    },
     state: () => store.read(),
     settings: () => settingsStore.read(),
     async updateSettings(change) {
