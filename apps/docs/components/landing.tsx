@@ -135,23 +135,57 @@ function TerminalMockup({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-function InstallerCards() {
+function InstallerSelect({
+  selected,
+  copied,
+  onSelect,
+  onCopy,
+}: {
+  selected: (typeof installers)[number];
+  copied: boolean;
+  onSelect: (name: string | null) => void;
+  onCopy: () => void;
+}) {
   return (
-    <div className="grid w-full max-w-xl grid-cols-2 gap-2 sm:grid-cols-4">
-      {installers.map((installer) => (
-        <div
-          key={installer.name}
-          className="rounded-xl border border-border bg-background/55 px-3 py-2.5 backdrop-blur"
+    <div className="flex w-full max-w-xl flex-col gap-2 sm:flex-row">
+      <Select value={selected.name} onValueChange={onSelect}>
+        <SelectTrigger
+          aria-label="Package manager"
+          className="h-11 w-full rounded-xl border-border bg-background/55 px-3 backdrop-blur sm:w-40"
         >
-          <div className="flex items-center gap-2">
-            <img src={installer.logo} alt="" className="size-4" />
-            <span className="text-sm font-medium">{installer.name}</span>
-          </div>
-          <code className="mt-2 block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10px] text-muted-foreground">
-            {installer.command}
-          </code>
-        </div>
-      ))}
+          <SelectValue>
+            <span className="flex items-center gap-2">
+              <img src={selected.logo} alt="" className="size-4" />
+              {selected.name}
+            </span>
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent className="border-border bg-[#111111] text-foreground">
+          {installers.map((installer) => (
+            <SelectItem key={installer.name} value={installer.name}>
+              <span className="flex items-center gap-2">
+                <img src={installer.logo} alt="" className="size-4" />
+                {installer.name}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <div className="flex min-w-0 flex-1 items-center rounded-xl border border-border bg-background/55 pl-3 backdrop-blur">
+        <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
+          {selected.command}
+        </code>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="mr-1 shrink-0 rounded-lg"
+          aria-label={copied ? 'Installation command copied' : 'Copy installation command'}
+          title={copied ? 'Copied' : 'Copy command'}
+          onClick={onCopy}
+        >
+          {copied ? <Check /> : <Copy />}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -160,6 +194,8 @@ export function Landing({ locale }: { locale: Locale }) {
   const copy = landingCopy[locale];
   const rootRef = useRef<HTMLDivElement>(null);
   const [promptCopied, setPromptCopied] = useState(false);
+  const [installer, setInstaller] = useState(installers[0]);
+  const [installCopied, setInstallCopied] = useState(false);
   useLandingAnimations(rootRef);
 
   useEffect(() => {
@@ -190,6 +226,12 @@ export function Landing({ locale }: { locale: Locale }) {
     await navigator.clipboard.writeText(agentPrompt);
     setPromptCopied(true);
     window.setTimeout(() => setPromptCopied(false), 1800);
+  }
+
+  async function copyInstallCommand() {
+    await navigator.clipboard.writeText(installer.command);
+    setInstallCopied(true);
+    window.setTimeout(() => setInstallCopied(false), 1800);
   }
 
   const jsonLd = {
@@ -354,7 +396,16 @@ export function Landing({ locale }: { locale: Locale }) {
               <p className="text-sm text-muted-foreground">
                 {copy.hero.installLead} <code className="font-mono text-foreground">mink</code>.
               </p>
-              <InstallerCards />
+              <InstallerSelect
+                selected={installer}
+                copied={installCopied}
+                onSelect={(name) => {
+                  const next = installers.find((item) => item.name === name);
+                  if (next) setInstaller(next);
+                  setInstallCopied(false);
+                }}
+                onCopy={() => void copyInstallCommand()}
+              />
             </div>
           </div>
           <div data-gsap="hero-visual">
