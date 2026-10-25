@@ -46,7 +46,11 @@ import { withBasePath } from '@/lib/base-path';
 
 const repo = 'https://github.com/yaroslavlky/mink';
 
-const agentPrompt = `Explore this repository before changing anything. Identify its package manager, scripts, Makefile/Taskfile/Compose services, test and build commands, and local development workflow. Then create a portable mink.yml for Mink that gives these commands clear names, typed parameters, sensible presets, dependencies, and readiness checks for local services. Use direct exec + args for portable commands whenever possible. Do not put secrets in the file; reference them through parameters or environment variables. Validate the configuration with \`mink check --no-discovery\`, show the execution plan with \`mink plan <command> --json\`, and explain what you created.`;
+const agentPrompt = `You are configuring Mink (https://yaroslavlky.github.io/mink/), a terminal command centre for repository tasks and local services. Before editing, read the configuration guide at https://yaroslavlky.github.io/mink/configuration/ and use the JSON Schema as the source of truth: https://github.com/yaroslavlky/mink/blob/main/packages/core/schema/mink.schema.json
+
+Explore this repository before changing anything. Identify its package manager, scripts, Makefile/Taskfile/Compose services, test and build commands, and local development workflow. Create or improve mink.yml with version: 1 and a commands map. Give commands stable IDs and clear names. Prefer kind: command with direct exec and args for portable execution; use command only for trusted shell code. Model multi-step workflows as kind: pipeline with named steps, uses, dependencies, and bounded parallelism. Add typed parameters, defaults, presets, and HTTP/TCP/process readiness checks only where they reflect the repository's real workflow.
+
+Do not put secrets in mink.yml; reference them through secret parameters or environment variables. Do not replace an existing configuration blindly: preserve useful entries and explain any change. Validate with mink check --no-discovery, inspect at least one safe plan with mink plan <command> --json, and explain the resulting commands, parameters, and assumptions.`;
 
 const installers = [
   {
